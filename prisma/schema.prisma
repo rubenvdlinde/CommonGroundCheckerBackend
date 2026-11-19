@@ -25,6 +25,8 @@ model RepoAnalysis {
   endorsement     Json?
   results   Json
   createdAt DateTime @default(now())
+  drops     MaintenanceDrop[] @relation("DropAnalysis")
+  resolvedDrops MaintenanceDrop[] @relation("DropResolvedAnalysis")
 
   @@index([repoId])
   @@index([scoringConfigId])
@@ -60,6 +62,7 @@ model Repo {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   analyses  RepoAnalysis[]
+  drops     MaintenanceDrop[]
 
   @@index([owner])
   @@index([name])
@@ -74,7 +77,37 @@ model ScoringConfig {
   complexityThreshold        Int            @default(15)
   complexityMaxCcnThreshold  Int            @default(30)
   spectralRulesetSource      String         @default("https://static.developer.overheid.nl/adr/ruleset.yaml")
+  fixTerms                   Json           @default("{}")
+  kpiTargets                 Json           @default("{}")
   createdAt                  DateTime       @default(now())
   updatedAt                  DateTime       @updatedAt
   analyses                   RepoAnalysis[]
+}
+
+/// A criterion, rating or verdict that got worse between two analyses of
+/// the same repository and scanned ref kind. Open until a later analysis
+/// recovers it.
+model MaintenanceDrop {
+  id                 String        @id @default(uuid())
+  repoId             String
+  repository         Repo          @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  analysisId         String
+  analysis           RepoAnalysis  @relation("DropAnalysis", fields: [analysisId], references: [id], onDelete: Cascade)
+  previousAnalysisId String
+  scannedRefKind     String?
+  kind               String
+  subject            String
+  label              String
+  fromValue          String
+  toValue            String
+  detectedAt         DateTime
+  fixTermDays        Int
+  fixBy              DateTime
+  resolvedAt         DateTime?
+  resolvedAnalysisId String?
+  resolvedAnalysis   RepoAnalysis? @relation("DropResolvedAnalysis", fields: [resolvedAnalysisId], references: [id], onDelete: SetNull)
+  createdAt          DateTime      @default(now())
+
+  @@index([repoId, resolvedAt])
+  @@index([analysisId])
 }

@@ -1,6 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@/lib/db";
 import { computeNextCheckAt } from "@/lib/follow";
+import { recordAnalysisDrops, toDropResponse } from "@/lib/drops";
+import { notifyDrops } from "@/lib/notify";
+import { getScoringConfig } from "@/lib/scoring";
 
 const SCANNED_REF_KINDS = [
   "declared-version",
@@ -197,6 +200,33 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
             ),
           },
         });
+
+        try {
+          const { fixTerms } = await getScoringConfig();
+          const drops = await recordAnalysisDrops(
+            {
+              id: analysis.id,
+              repoId,
+              checkedAt: checkedAtDate,
+              scannedRefKind,
+              results,
+              rating,
+              categoryRatings,
+              endorsement,
+            },
+            fixTerms
+          );
+          await notifyDrops(
+            repository,
+            drops.map((drop) => toDropResponse(drop)),
+            { logger: request.log }
+          );
+        } catch (err: unknown) {
+          request.log.error(
+            { repoId, analysisId: analysis.id, error: err instanceof Error ? err.message : String(err) },
+            "Detecting drops failed; the analysis is stored"
+          );
+        }
 
         return reply.status(201).send(analysis);
       } catch (err: unknown) {

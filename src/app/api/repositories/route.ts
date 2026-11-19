@@ -29,6 +29,14 @@ function toLatestAnalysis(analysis: LatestAnalysisRecord) {
   };
 }
 
+/** How many drops are open, and how many of those are past their fix-by date. */
+function openDropCounts(drops: Array<{ fixBy: Date }>, now: number) {
+  return {
+    openDropCount: drops.length,
+    overdueDropCount: drops.filter((drop) => drop.fixBy.getTime() < now).length,
+  };
+}
+
 export function registerRepositoriesRoutes(fastify: FastifyInstance) {
   fastify.get("/api/repositories", async (request, reply) => {
     try {
@@ -57,9 +65,14 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
           _count: {
             select: { analyses: true },
           },
+          drops: {
+            where: { resolvedAt: null },
+            select: { fixBy: true },
+          },
         },
       });
 
+      const now = Date.now();
       return {
         repositories: repositories.map((repository) => ({
           id: repository.id,
@@ -74,6 +87,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
           updatedAt: repository.updatedAt,
           ...toFollowFields(repository),
           analysisCount: repository._count.analyses,
+          ...openDropCounts(repository.drops ?? [], now),
           latestAnalysis: repository.analyses[0]
             ? toLatestAnalysis(repository.analyses[0])
             : null,

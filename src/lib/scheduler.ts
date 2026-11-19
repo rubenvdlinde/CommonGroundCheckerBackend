@@ -1,6 +1,7 @@
 import { Agent, fetch as undiciFetch, type Dispatcher } from "undici";
 import { prisma } from "@/lib/db";
 import { computeNextCheckAt } from "@/lib/follow";
+import { readNightlyHour } from "@/lib/nightly";
 
 type SchedulerLogger = {
   info: (obj: object, msg?: string) => void;
@@ -54,6 +55,7 @@ export function readSchedulerConfig(env: NodeJS.ProcessEnv = process.env) {
     tickSeconds: positiveNumber(env.SCHEDULER_TICK_SECONDS, 60),
     maxConcurrent: Math.floor(positiveNumber(env.SCHEDULER_MAX_CONCURRENT, 2)),
     scanTimeoutSeconds: positiveNumber(env.SCHEDULER_SCAN_TIMEOUT_SECONDS, 900),
+    nightlyHour: readNightlyHour(env),
   };
 }
 

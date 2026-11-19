@@ -8,6 +8,12 @@ import {
   getScoringConfig,
   saveCriterionWeights,
 } from "@/lib/scoring";
+import {
+  DEFAULT_FIX_TERMS,
+  DEFAULT_KPI_TARGETS,
+  parseFixTerms,
+  parseKpiTargets,
+} from "@/lib/maintenanceTerms";
 
 type ScoringRouteBody = {
   reset?: boolean;
@@ -17,6 +23,8 @@ type ScoringRouteBody = {
   criterionWeights?: unknown;
   categoryWeights?: unknown;
   criterionRequirementLevels?: unknown;
+  fixTerms?: unknown;
+  kpiTargets?: unknown;
 };
 
 function extractWeightsFromPayload(payload: unknown): Record<string, number> {
@@ -140,6 +148,10 @@ export function registerAdminScoringRoute(fastify: FastifyInstance) {
         defaultComplexityThreshold: DEFAULT_COMPLEXITY_THRESHOLD,
         defaultComplexityMaxCcnThreshold: DEFAULT_COMPLEXITY_MAX_CCN_THRESHOLD,
         defaultSpectralRulesetSource: DEFAULT_SPECTRAL_RULESET_SOURCE,
+        fixTerms: scoringConfig.fixTerms,
+        kpiTargets: scoringConfig.kpiTargets,
+        defaultFixTerms: DEFAULT_FIX_TERMS,
+        defaultKpiTargets: DEFAULT_KPI_TARGETS,
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
@@ -168,7 +180,8 @@ export function registerAdminScoringRoute(fastify: FastifyInstance) {
               DEFAULT_COMPLEXITY_MAX_CCN_THRESHOLD,
               {},
               undefined,
-              DEFAULT_SPECTRAL_RULESET_SOURCE
+              DEFAULT_SPECTRAL_RULESET_SOURCE,
+              { fixTerms: {}, kpiTargets: {} }
             )
           : await saveCriterionWeights(
               extractWeightsFromPayload(body?.criterionWeights),
@@ -176,7 +189,11 @@ export function registerAdminScoringRoute(fastify: FastifyInstance) {
               incomingMaxThreshold,
               extractRequirementLevelsFromPayload(body?.criterionRequirementLevels),
               incomingCategoryWeights,
-              incomingSpectralRulesetSource
+              incomingSpectralRulesetSource,
+              {
+                fixTerms: body.fixTerms === undefined ? undefined : parseFixTerms(body.fixTerms),
+                kpiTargets: body.kpiTargets === undefined ? undefined : parseKpiTargets(body.kpiTargets),
+              }
             );
 
         return {
@@ -199,6 +216,8 @@ export function registerAdminScoringRoute(fastify: FastifyInstance) {
               config.requirementLevel,
             ])
           ),
+          fixTerms: activeConfig.config.fixTerms,
+          kpiTargets: activeConfig.config.kpiTargets,
         };
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Unexpected error.";

@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { prisma } from "@/lib/db";
 import { toFollowFields } from "@/lib/follow";
+import { listRepositoryDrops } from "@/lib/drops";
 
 type RepoHistoryRepository = {
   id: string;
@@ -105,6 +106,7 @@ export function registerRepoHistoryRoute(fastify: FastifyInstance) {
           updatedAt: repository.updatedAt,
         },
         analyses: repository.analyses,
+        drops: await listRepositoryDrops(repository.id),
       };
     } catch (err: unknown) {
       let message = "An unexpected error occurred.";

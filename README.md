@@ -45,6 +45,7 @@ The API supports three types of resources:
 | `POST` | `/api/repositories` | Create or update repository metadata |
 | `POST` | `/api/repositories/{repoId}/analyses` | Persist a new analysis result for an existing repository |
 | `POST` | `/api/webhook` | Register a repository for scheduled rescans or trigger a rescan from CI |
+| `GET` | `/api/repositories/{repoId}/drops` | List the drops of a repository, with `?state=open` only the open ones |
 | `PUT` | `/api/repositories/{repoId}/follow` | Follow or unfollow a repository for scheduled rescans (admin token required) |
 | `GET` | `/api/admin/scoring` | Retrieve the current scoring configuration snapshot |
 | `POST` | `/api/admin/scoring` | Save a new scoring configuration snapshot |
@@ -81,10 +82,36 @@ Before a scan starts, the repository is claimed in the database by moving `nextC
 | `SCHEDULER_TICK_SECONDS` | `60` | How often due repositories are looked up |
 | `SCHEDULER_MAX_CONCURRENT` | `2` | Maximum number of scans running at once in this process |
 | `SCHEDULER_SCAN_TIMEOUT_SECONDS` | `900` | A scan that takes longer is aborted and retried at the next interval |
+| `SCHEDULER_NIGHTLY_HOUR` | none | A whole hour from `0` to `23`. When set, scheduled checks run at that hour in Europe/Amsterdam time once their interval is up: a daily repository every night, a weekly one on the night its week is up. A check that ran less than 6 hours before that hour is not repeated that night |
 
 The scheduler stops when the server closes (also on `SIGINT` and `SIGTERM`); scans still in flight are aborted and picked up again at their next interval.
 
 `POST /api/repositories` accepts an optional boolean `isRegister`, stored with the repository and passed on to scheduled rescans.
+
+### Drops and fix terms
+
+After an analysis is stored, it is compared with the previous analysis of the same repository and the same scanned ref kind (`scannedRefKind`). A drop is recorded when:
+
+- a criterion goes from `pass` to `fail` (informative criteria are left out)
+- the overall rating or a category rating loses a whole star
+- the verdict "suitable for Common Ground" (`endorsement.passed`) is lost
+
+Each drop gets a fix-by date: the moment it was detected (the analysis's `checkedAt`) plus the fix term in days. A drop is open until a later analysis of the same ref kind recovers it: the criterion passes, the rating has its stars back, or the verdict is suitable again. An open drop past its fix-by date is `overdue`. A subject with an open drop gets no second drop.
+
+The fix terms are part of the scoring configuration (`fixTerms` in `/api/admin/scoring`). The defaults are proposals, until a governance decision sets the real terms:
+
+| Drop | Proposed term |
+|---|---|
+| Open Source Health (known vulnerabilities in dependencies) or secret scanning | 14 days |
+| Any other mandatory criterion | 30 days |
+| A recommended criterion | 90 days |
+| The Maintainability rating loses a star | 90 days |
+| The overall rating or another category rating loses a star | 60 days |
+| The verdict "suitable for Common Ground" is lost | 30 days |
+
+The scoring configuration also holds `kpiTargets`: proposed target values for the CHAOSS project health metrics the checker shows. They are informative only: they never give stars and never count towards the verdict.
+
+When `NOTIFY_WEBHOOK_URL` is set, every new drop is posted to it as JSON: `{ "event": "maintenance.drop", "repository": { id, repoUrl, owner, name }, "drop": { ... } }`, with the drop as `/api/repositories/{repoId}/drops` returns it. A failing webhook is logged; it never fails storing the analysis. There is no email.
 
 ### Rescan webhook
 
@@ -169,6 +196,7 @@ The service uses PostgreSQL as its primary datastore. Prisma is used for type-sa
 - `Repo` � stores repository metadata, GitHub owner/name, repository URL, topics, license, and discovered locations.
 - `RepoAnalysis` � stores analysis run results, score, checked timestamp, version information, and raw results payload.
 - `ScoringConfig` � stores a snapshot of scoring configuration used for a run, including criterion weights and thresholds.
+- `MaintenanceDrop` stores a criterion, rating or verdict that got worse between two analyses, with its fix-by date and when it was resolved.
 
 The Prisma schema is defined in `prisma/schema.prisma`. Generated Prisma client code is located in `src/generated/prisma`.
 

@@ -137,6 +137,26 @@ describe("scheduler", () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
+  it("claims a daily repository for the next nightly hour when SCHEDULER_NIGHTLY_HOUR is set", async () => {
+    vi.stubEnv("SCHEDULER_NIGHTLY_HOUR", "3");
+    try {
+      const repo = dueRepo("a");
+      mockedPrisma.repo.findMany.mockResolvedValue([repo]);
+      const s = scheduler(vi.fn().mockResolvedValue(new Response("{}", { status: 200 })));
+
+      await s.tick();
+      await s.idle();
+
+      // 03:00 in Amsterdam is 02:00 UTC in winter.
+      expect(mockedPrisma.repo.updateMany).toHaveBeenCalledWith({
+        where: { id: "a", nextCheckAt: repo.nextCheckAt },
+        data: { nextCheckAt: new Date("2026-11-12T02:00:00Z") },
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("skips a repository another instance has already claimed", async () => {
     mockedPrisma.repo.findMany.mockResolvedValue([dueRepo("a")]);
     mockedPrisma.repo.updateMany.mockResolvedValue({ count: 0 });
@@ -386,6 +406,7 @@ describe("readSchedulerConfig", () => {
       tickSeconds: 60,
       maxConcurrent: 2,
       scanTimeoutSeconds: 900,
+      nightlyHour: null,
     });
   });
 
@@ -397,6 +418,7 @@ describe("readSchedulerConfig", () => {
         SCHEDULER_TICK_SECONDS: "10",
         SCHEDULER_MAX_CONCURRENT: "4",
         SCHEDULER_SCAN_TIMEOUT_SECONDS: "60",
+        SCHEDULER_NIGHTLY_HOUR: "3",
       })
     ).toEqual({
       enabled: true,
@@ -404,6 +426,7 @@ describe("readSchedulerConfig", () => {
       tickSeconds: 10,
       maxConcurrent: 4,
       scanTimeoutSeconds: 60,
+      nightlyHour: 3,
     });
   });
 });

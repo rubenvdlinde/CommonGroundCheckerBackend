@@ -11,6 +11,12 @@ vi.mock("@/lib/db", () => ({
     },
     repoAnalysis: {
       create: vi.fn(),
+      findFirst: vi.fn(() => Promise.resolve(null)),
+    },
+    maintenanceDrop: {
+      findMany: vi.fn(() => Promise.resolve([])),
+      create: vi.fn(),
+      update: vi.fn(),
     },
     $disconnect: vi.fn(),
   },
