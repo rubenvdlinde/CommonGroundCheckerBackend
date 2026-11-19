@@ -46,6 +46,11 @@ The API supports three types of resources:
 | `POST` | `/api/repositories/{repoId}/analyses` | Persist a new analysis result for an existing repository |
 | `POST` | `/api/webhook` | Register a repository for scheduled rescans or trigger a rescan from CI |
 | `PUT` | `/api/repositories/{repoId}/follow` | Follow or unfollow a repository for scheduled rescans (admin token required) |
+| `GET` | `/api/repositories/{repoId}/usage` | Declared and confirmed users and the SLAs of a repository |
+| `POST` | `/api/repositories/{repoId}/usage/confirmations` | Record that an organisation confirmed it uses the component (admin token required) |
+| `DELETE` | `/api/repositories/{repoId}/usage/confirmations/{confirmationId}` | Remove a confirmation (admin token required) |
+| `POST` | `/api/repositories/{repoId}/usage/slas` | Record an SLA (admin token required) |
+| `DELETE` | `/api/repositories/{repoId}/usage/slas/{slaId}` | Remove an SLA (admin token required) |
 | `GET` | `/api/admin/scoring` | Retrieve the current scoring configuration snapshot |
 | `POST` | `/api/admin/scoring` | Save a new scoring configuration snapshot |
 | `GET` | `/api/repo-history` | Retrieve analysis history for a repository by owner/repo |
@@ -55,6 +60,9 @@ The API supports three types of resources:
 - `/api/repositories` expects JSON metadata containing `repoUrl` and optional repository fields.
 - The literal OpenAPI specification is stored in `src/app/api/openapi/openapi.yaml` and served by `/api/openapi`.
 - `/api/repositories/{repoId}/analyses` expects analysis result payloads including `checkedAt`, `score`, and `results`, and optionally `scannedRef`, `scannedRefKind` (why that ref was chosen: `declared-version`, `release`, `tag`, `branch`, `default-branch` or `default-branch-fallback`) and `scannedCommit`: the branch or tag and commit that were scanned.
+- `/api/repositories/{repoId}/analyses` also accepts `declaredUsers`, the organisations under `usedBy` in publiccode.yml. The analysis stores them with `declaredUserCount` and `confirmedUserCount`: the declared organisations that have a confirmation at that moment. Without `declaredUsers` both counts stay `null`.
+- `/api/repositories/{repoId}/usage/confirmations` expects `{ "organisation": "Gemeente Utrecht", "confirmedOn": "2026-11-19", "source": "https://...", "method": "written-confirmation" }`. The method is `written-confirmation` (the organisation confirmed it in writing) or `register-entry` (a register lists it as a user), and the source links to that confirmation or entry. Names match the `usedBy` names case-insensitively and trimmed; a confirmation for an organisation that `usedBy` does not name is kept but not counted. One confirmation per organisation and repository.
+- `/api/repositories/{repoId}/usage/slas` expects `{ "party": "VNG", "maintainer": "...", "startsOn": "2026-01-01", "until": "2027-12-31", "link": "https://..." }`; `link` is optional. Whether an SLA is still valid is decided by the checker, which reads `until` as the last day it applies.
 - `/api/admin/scoring` exposes and persists custom scoring parameters for criterion weights, complexity thresholds, and Spectral ruleset selection.
 - `/api/repositories/{repoId}/follow` expects `{ "followed": true, "checkIntervalHours": 168 }`. The interval is `24` (daily), `168` (weekly) or `720` (monthly); when omitted, the stored interval is kept, or weekly is used when following for the first time. An optional `scanRef` chooses what scheduled scans read: empty or `null` lets the checker scan the released version (the tag of the publiccode.yml `softwareVersion`, else the newest stable release or semver tag, else the default branch with a warning), `default-branch` the default branch, `latest-release` the newest stable release, or a branch or tag name such as `development`; when omitted, the stored value is kept.
 

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@/lib/db";
 import { computeNextCheckAt } from "@/lib/follow";
+import { countConfirmed, declaredOrganisations } from "@/lib/usage";
 
 const SCANNED_REF_KINDS = [
   "declared-version",
@@ -65,6 +66,23 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
             .send({ error: "Missing or invalid results field." });
         }
 
+        const declaredUsers = declaredOrganisations(body?.declaredUsers);
+        let usageCounts = {};
+        if (declaredUsers) {
+          const confirmations = await prisma.repoUserConfirmation.findMany({
+            where: { repoId },
+            select: { organisationKey: true },
+          });
+          usageCounts = {
+            declaredUsers,
+            declaredUserCount: declaredUsers.length,
+            confirmedUserCount: countConfirmed(
+              declaredUsers,
+              confirmations.map((confirmation) => confirmation.organisationKey)
+            ),
+          };
+        }
+
         const checkedAtDate = new Date(checkedAt);
         const analysis = await prisma.repoAnalysis.create({
           data: {
@@ -75,6 +93,7 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
             scannedRef,
             scannedRefKind,
             scannedCommit,
+            ...usageCounts,
             score,
             results,
           },
