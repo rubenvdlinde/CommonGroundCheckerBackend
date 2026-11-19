@@ -283,6 +283,7 @@ paths:
                 $ref: "#/components/schemas/OrganisationList"
   /api/organisations/{slug}:
     get:
+      operationId: getApiOrganisation
       summary: "The followed components an organisation uses"
       parameters:
         - name: slug
