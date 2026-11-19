@@ -70,7 +70,7 @@ function httpUrl(value: string): boolean {
 export function parseSlaInput(body: unknown): Parsed<SlaInput> {
   const fields = (body ?? {}) as Record<string, unknown>;
   const party = text(fields.party);
-  if (!party) return { error: "Missing party: who agreed the SLA, for example VNG." };
+  if (!party) return { error: "Missing party: who contracts the maintainer, usually a municipality, on the VNG model contract." };
   const maintainer = text(fields.maintainer);
   if (!maintainer) return { error: "Missing maintainer: the organisation that maintains the component under the SLA." };
   const startsOn = parseDay(fields.startsOn);

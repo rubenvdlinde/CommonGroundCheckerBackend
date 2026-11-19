@@ -72,7 +72,7 @@ describe("parseSlaInput", () => {
   });
 
   it.each([
-    [{ party: "" }, "Missing party"],
+    [{ party: "" }, "Missing party: who contracts the maintainer, usually a municipality, on the VNG model contract"],
     [{ maintainer: undefined }, "Missing maintainer"],
     [{ startsOn: "soon" }, "invalid startsOn"],
     [{ until: null }, "invalid until"],
