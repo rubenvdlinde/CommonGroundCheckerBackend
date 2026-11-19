@@ -27,7 +27,7 @@ vi.mock("@/lib/db", () => ({
 
 import { prisma } from "@/lib/db";
 import { buildServer } from "@/server";
-import { DEFAULT_FIX_TERMS, DEFAULT_KPI_TARGETS } from "@/lib/maintenanceTerms";
+import { DEFAULT_FIX_TERMS, DEFAULT_KPI_TARGETS, DEFAULT_SLA_TERMS } from "@/lib/maintenanceTerms";
 
 type MockFn = ReturnType<typeof vi.fn>;
 const mockedPrisma = prisma as unknown as {
@@ -277,6 +277,8 @@ describe("fix terms and KPI targets in the scoring config", () => {
     expect(body.kpiTargets).toEqual(DEFAULT_KPI_TARGETS);
     expect(body.defaultFixTerms).toEqual(DEFAULT_FIX_TERMS);
     expect(body.defaultKpiTargets).toEqual(DEFAULT_KPI_TARGETS);
+    expect(body.slaTerms).toEqual(DEFAULT_SLA_TERMS);
+    expect(body.defaultSlaTerms).toEqual(DEFAULT_SLA_TERMS);
   });
 
   it("stores posted terms and targets", async () => {
@@ -285,13 +287,18 @@ describe("fix terms and KPI targets in the scoring config", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/admin/scoring",
-      payload: { fixTerms: { mandatory: 21, criteria: { license: 0 } }, kpiTargets: { "release-frequency": { min: 6 } } },
+      payload: {
+        fixTerms: { mandatory: 21, criteria: { license: 0 } },
+        kpiTargets: { "release-frequency": { min: 6 } },
+        slaTerms: { bug: { respondDays: 3, fixDays: 20 } },
+      },
     });
 
     expect(response.statusCode).toBe(200);
     const data = (mockedPrisma.scoringConfig.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
     expect(data.fixTerms).toEqual({ mandatory: 21, criteria: {} });
     expect(data.kpiTargets).toEqual({ "release-frequency": { min: 6 } });
+    expect(data.slaTerms).toEqual({ bug: { respondDays: 3, fixDays: 20 } });
     const body = JSON.parse(response.payload) as { fixTerms: { mandatory: number }; kpiTargets: Record<string, unknown> };
     expect(body.fixTerms.mandatory).toBe(21);
     expect(body.kpiTargets["release-frequency"]).toEqual({ min: 6 });

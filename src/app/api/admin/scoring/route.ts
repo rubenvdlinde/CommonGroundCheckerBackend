@@ -11,8 +11,10 @@ import {
 import {
   DEFAULT_FIX_TERMS,
   DEFAULT_KPI_TARGETS,
+  DEFAULT_SLA_TERMS,
   parseFixTerms,
   parseKpiTargets,
+  parseSlaTerms,
 } from "@/lib/maintenanceTerms";
 
 type ScoringRouteBody = {
@@ -25,6 +27,7 @@ type ScoringRouteBody = {
   criterionRequirementLevels?: unknown;
   fixTerms?: unknown;
   kpiTargets?: unknown;
+  slaTerms?: unknown;
 };
 
 function extractWeightsFromPayload(payload: unknown): Record<string, number> {
@@ -152,6 +155,8 @@ export function registerAdminScoringRoute(fastify: FastifyInstance) {
         kpiTargets: scoringConfig.kpiTargets,
         defaultFixTerms: DEFAULT_FIX_TERMS,
         defaultKpiTargets: DEFAULT_KPI_TARGETS,
+        slaTerms: scoringConfig.slaTerms,
+        defaultSlaTerms: DEFAULT_SLA_TERMS,
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
@@ -181,7 +186,7 @@ export function registerAdminScoringRoute(fastify: FastifyInstance) {
               {},
               undefined,
               DEFAULT_SPECTRAL_RULESET_SOURCE,
-              { fixTerms: {}, kpiTargets: {} }
+              { fixTerms: {}, kpiTargets: {}, slaTerms: {} }
             )
           : await saveCriterionWeights(
               extractWeightsFromPayload(body?.criterionWeights),
@@ -193,6 +198,7 @@ export function registerAdminScoringRoute(fastify: FastifyInstance) {
               {
                 fixTerms: body.fixTerms === undefined ? undefined : parseFixTerms(body.fixTerms),
                 kpiTargets: body.kpiTargets === undefined ? undefined : parseKpiTargets(body.kpiTargets),
+                slaTerms: body.slaTerms === undefined ? undefined : parseSlaTerms(body.slaTerms),
               }
             );
 
@@ -218,6 +224,7 @@ export function registerAdminScoringRoute(fastify: FastifyInstance) {
           ),
           fixTerms: activeConfig.config.fixTerms,
           kpiTargets: activeConfig.config.kpiTargets,
+          slaTerms: activeConfig.config.slaTerms,
         };
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Unexpected error.";

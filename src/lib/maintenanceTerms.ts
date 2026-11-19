@@ -1,7 +1,7 @@
 /**
- * Fix terms for drops and target values for the project health KPIs. The
- * defaults are proposals: who sets the real terms and targets is a
- * governance decision that has not been taken yet.
+ * Fix terms for drops, target values for the project health KPIs, and SLA
+ * response and fix terms for issues. The defaults are proposals: who sets
+ * the real terms and targets is a governance decision not taken yet.
  */
 
 /** Days a maintainer has to recover a drop, by what dropped. */
@@ -121,4 +121,111 @@ export function parseKpiTargets(value: unknown): Record<string, KpiTarget> {
 /** The KPI targets in effect: the defaults with the overrides on top. */
 export function effectiveKpiTargets(overrides: Record<string, KpiTarget> = {}): Record<string, KpiTarget> {
   return { ...DEFAULT_KPI_TARGETS, ...overrides };
+}
+
+/** The categories issues are measured in for the SLA response and fix times. */
+export const SLA_CATEGORIES = [
+  "critical-vulnerability",
+  "high-vulnerability",
+  "blocking-bug",
+  "bug",
+  "question",
+  "documentation",
+  "feature-request",
+  "unclassified",
+] as const;
+
+export type SlaCategory = (typeof SLA_CATEGORIES)[number];
+
+/**
+ * Terms in working days (Monday to Friday, Europe/Amsterdam). `fixDays`
+ * is "next-release" when a fix is due in the next stable release, and null
+ * when the category has no fix term (development, outside maintenance).
+ */
+export type SlaTerm = {
+  respondDays: number | null;
+  fixDays: number | "next-release" | null;
+};
+
+export const DEFAULT_SLA_TERMS: Record<SlaCategory, SlaTerm> = {
+  "critical-vulnerability": { respondDays: 1, fixDays: 7 },
+  "high-vulnerability": { respondDays: 2, fixDays: 30 },
+  "blocking-bug": { respondDays: 2, fixDays: 10 },
+  bug: { respondDays: 5, fixDays: "next-release" },
+  question: { respondDays: 10, fixDays: null },
+  documentation: { respondDays: 10, fixDays: null },
+  "feature-request": { respondDays: 10, fixDays: null },
+  unclassified: { respondDays: 10, fixDays: null },
+};
+
+function isSlaCategory(value: unknown): value is SlaCategory {
+  return typeof value === "string" && (SLA_CATEGORIES as readonly string[]).includes(value);
+}
+
+function isWorkingDays(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 365;
+}
+
+/**
+ * Reads SLA term overrides per category. A term is a whole number of
+ * working days from 1 to 365 or null; a fix term may also be "next-release".
+ * Unknown categories and invalid terms are left out.
+ */
+export function parseSlaTerms(value: unknown): Partial<Record<SlaCategory, SlaTerm>> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result: Partial<Record<SlaCategory, SlaTerm>> = {};
+  for (const [category, term] of Object.entries(value as Record<string, unknown>)) {
+    if (!isSlaCategory(category) || !term || typeof term !== "object" || Array.isArray(term)) continue;
+    const { respondDays, fixDays } = term as Record<string, unknown>;
+    const respond = respondDays === null || isWorkingDays(respondDays) ? respondDays : undefined;
+    const fix = fixDays === null || fixDays === "next-release" || isWorkingDays(fixDays) ? fixDays : undefined;
+    if (respond === undefined || fix === undefined) continue;
+    result[category] = { respondDays: respond, fixDays: fix };
+  }
+  return result;
+}
+
+/** The SLA terms in effect: the defaults with the overrides on top. */
+export function effectiveSlaTerms(
+  overrides: Partial<Record<SlaCategory, SlaTerm>> = {}
+): Record<SlaCategory, SlaTerm> {
+  return { ...DEFAULT_SLA_TERMS, ...overrides };
+}
+
+/**
+ * What a label can stand for in a repository's label map: a category, or
+ * "no-fix-term" (the issue keeps its response term but has no fix term,
+ * like `wontfix`), or "ignore" to switch off one of the default labels.
+ */
+export const SLA_LABEL_TARGETS = [
+  "blocking-bug",
+  "bug",
+  "question",
+  "documentation",
+  "feature-request",
+  "no-fix-term",
+  "ignore",
+] as const;
+
+const MAX_SLA_LABELS = 50;
+
+/**
+ * Reads a repository's label map: label name to target, on top of the
+ * checker's default map of GitHub's default labels. Label names are matched
+ * case-insensitively and stored lower case. Null clears the map; undefined
+ * means the value is invalid.
+ */
+export function parseSlaLabels(value: unknown): Record<string, string> | null | undefined {
+  if (value === null) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length > MAX_SLA_LABELS) return undefined;
+  const result: Record<string, string> = {};
+  for (const [label, target] of entries) {
+    const name = label.trim().toLowerCase();
+    if (!name || name.length > 100) return undefined;
+    if (typeof target !== "string" || !(SLA_LABEL_TARGETS as readonly string[]).includes(target)) return undefined;
+    result[name] = target;
+  }
+  return result;
 }

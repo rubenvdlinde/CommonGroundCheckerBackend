@@ -2,10 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   DEFAULT_FIX_TERMS,
   DEFAULT_KPI_TARGETS,
+  DEFAULT_SLA_TERMS,
   effectiveFixTerms,
   effectiveKpiTargets,
+  effectiveSlaTerms,
   parseFixTerms,
   parseKpiTargets,
+  parseSlaLabels,
+  parseSlaTerms,
 } from "@/lib/maintenanceTerms";
 
 describe("fix terms", () => {
@@ -68,5 +72,42 @@ describe("KPI targets", () => {
       ...DEFAULT_KPI_TARGETS,
       "release-frequency": { min: 6 },
     });
+  });
+});
+
+describe("SLA terms", () => {
+  it("proposes the response and fix terms in working days", () => {
+    expect(DEFAULT_SLA_TERMS["critical-vulnerability"]).toEqual({ respondDays: 1, fixDays: 7 });
+    expect(DEFAULT_SLA_TERMS["high-vulnerability"]).toEqual({ respondDays: 2, fixDays: 30 });
+    expect(DEFAULT_SLA_TERMS["blocking-bug"]).toEqual({ respondDays: 2, fixDays: 10 });
+    expect(DEFAULT_SLA_TERMS.bug).toEqual({ respondDays: 5, fixDays: "next-release" });
+    expect(DEFAULT_SLA_TERMS["feature-request"]).toEqual({ respondDays: 10, fixDays: null });
+    expect(DEFAULT_SLA_TERMS.unclassified).toEqual({ respondDays: 10, fixDays: null });
+  });
+
+  it("keeps valid terms of known categories and leaves out the rest", () => {
+    expect(
+      parseSlaTerms({
+        bug: { respondDays: 3, fixDays: 20 },
+        question: { respondDays: null, fixDays: null },
+        "blocking-bug": { respondDays: 0, fixDays: 5 },
+        "high-vulnerability": { respondDays: 2, fixDays: "soon" },
+        urgent: { respondDays: 1, fixDays: 1 },
+      })
+    ).toEqual({ bug: { respondDays: 3, fixDays: 20 }, question: { respondDays: null, fixDays: null } });
+    expect(effectiveSlaTerms({ bug: { respondDays: 3, fixDays: 20 } }).bug).toEqual({ respondDays: 3, fixDays: 20 });
+    expect(effectiveSlaTerms().question).toEqual(DEFAULT_SLA_TERMS.question);
+  });
+
+  it("reads a label map with lower case names, and rejects unknown targets", () => {
+    expect(parseSlaLabels({ " P0 ": "blocking-bug", WontFix: "no-fix-term", bug: "ignore" })).toEqual({
+      p0: "blocking-bug",
+      wontfix: "no-fix-term",
+      bug: "ignore",
+    });
+    expect(parseSlaLabels(null)).toBeNull();
+    expect(parseSlaLabels({ bug: "urgent" })).toBeUndefined();
+    expect(parseSlaLabels({ "": "bug" })).toBeUndefined();
+    expect(parseSlaLabels(["bug"])).toBeUndefined();
   });
 });

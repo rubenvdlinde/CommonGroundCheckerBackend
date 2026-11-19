@@ -98,6 +98,24 @@ describe("scheduler", () => {
     });
   });
 
+  it("passes the repository's SLA label map to the checker when one is set", async () => {
+    mockedPrisma.repo.findMany.mockResolvedValue([
+      dueRepo("a", { slaLabels: { blocker: "blocking-bug" } }),
+      dueRepo("b", { slaLabels: null }),
+    ]);
+    const fetchFn = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    const s = scheduler(fetchFn, 2);
+
+    await s.tick();
+    await s.idle();
+
+    const bodies = fetchFn.mock.calls.map(
+      ([, init]) => JSON.parse((init as RequestInit).body as string) as Record<string, unknown>
+    );
+    expect(bodies[0]).toMatchObject({ slaLabels: { blocker: "blocking-bug" } });
+    expect(bodies[1]).not.toHaveProperty("slaLabels");
+  });
+
   it("asks the checker to scan the repository's scanRef when one is set", async () => {
     mockedPrisma.repo.findMany.mockResolvedValue([
       dueRepo("a", { scanRef: "development" }),

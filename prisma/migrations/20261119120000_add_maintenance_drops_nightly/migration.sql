@@ -1,6 +1,10 @@
 -- AlterTable
 ALTER TABLE "ScoringConfig" ADD COLUMN     "fixTerms" JSONB NOT NULL DEFAULT '{}',
-ADD COLUMN     "kpiTargets" JSONB NOT NULL DEFAULT '{}';
+ADD COLUMN     "kpiTargets" JSONB NOT NULL DEFAULT '{}',
+ADD COLUMN     "slaTerms" JSONB NOT NULL DEFAULT '{}';
+
+-- AlterTable
+ALTER TABLE "Repo" ADD COLUMN     "slaLabels" JSONB;
 
 -- CreateTable
 CREATE TABLE "MaintenanceDrop" (

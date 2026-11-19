@@ -111,6 +111,18 @@ The fix terms are part of the scoring configuration (`fixTerms` in `/api/admin/s
 
 The scoring configuration also holds `kpiTargets`: proposed target values for the CHAOSS project health metrics the checker shows. They are informative only: they never give stars and never count towards the verdict.
 
+`slaTerms` holds the proposed SLA response and fix terms for issues, in working days (Monday to Friday, Europe/Amsterdam). The checker measures them on the issues of a repository and shows them for information:
+
+| Category | Respond within | Fix within |
+|---|---|---|
+| Critical vulnerability | 1 | 7 |
+| High vulnerability | 2 | 30 |
+| Blocking bug | 2 | 10 |
+| Other bug | 5 | the next stable release (`"next-release"`) |
+| Question, documentation, feature request, unclassified | 10 | no fix term (development, outside maintenance) |
+
+The checker classifies issues by GitHub's default labels, so a repository needs no setup. A followed repository can add to that map with `slaLabels` on `/api/repositories/{repoId}/follow`: an object of label names (matched case-insensitively) to `blocking-bug`, `bug`, `question`, `documentation`, `feature-request`, `no-fix-term` (keeps the response term, like `wontfix`) or `ignore` (switches a default label off); `null` clears it. Scheduled scans pass it to the checker as `slaLabels`.
+
 When `NOTIFY_WEBHOOK_URL` is set, every new drop is posted to it as JSON: `{ "event": "maintenance.drop", "repository": { id, repoUrl, owner, name }, "drop": { ... } }`, with the drop as `/api/repositories/{repoId}/drops` returns it. A failing webhook is logged; it never fails storing the analysis. There is no email.
 
 ### Rescan webhook

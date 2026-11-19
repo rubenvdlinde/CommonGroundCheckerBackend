@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@/lib/db";
+import { Prisma } from "../../../../../generated/prisma";
 import { requireAdminToken } from "@/lib/adminAuth";
+import { SLA_LABEL_TARGETS, parseSlaLabels } from "@/lib/maintenanceTerms";
 import {
   ALLOWED_CHECK_INTERVAL_HOURS,
   DEFAULT_CHECK_INTERVAL_HOURS,
@@ -42,6 +44,13 @@ export function registerRepoFollowRoute(fastify: FastifyInstance) {
         });
       }
 
+      const slaLabels = body.slaLabels === undefined ? undefined : parseSlaLabels(body.slaLabels);
+      if (body.slaLabels !== undefined && slaLabels === undefined) {
+        return reply.status(400).send({
+          error: `Invalid slaLabels: expected null or an object of at most 50 label names, each mapped to one of ${SLA_LABEL_TARGETS.join(", ")}.`,
+        });
+      }
+
       const repository = await prisma.repo.findUnique({ where: { id: repoId } });
       if (!repository) {
         return reply.status(404).send({ error: "Repository not found." });
@@ -62,6 +71,7 @@ export function registerRepoFollowRoute(fastify: FastifyInstance) {
           followed,
           checkIntervalHours,
           ...(scanRef !== undefined ? { scanRef } : {}),
+          ...(slaLabels !== undefined ? { slaLabels: slaLabels ?? Prisma.DbNull } : {}),
           nextCheckAt: computeNextCheckAt(
             followed,
             checkIntervalHours,

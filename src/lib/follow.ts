@@ -66,6 +66,7 @@ type FollowFieldsSource = {
   followed: boolean;
   checkIntervalHours: number | null;
   scanRef?: string | null;
+  slaLabels?: unknown;
   lastCheckedAt: Date | null;
   nextCheckAt: Date | null;
 };
@@ -75,6 +76,7 @@ export function toFollowFields(repository: FollowFieldsSource) {
     followed: repository.followed,
     checkIntervalHours: repository.checkIntervalHours,
     scanRef: repository.scanRef ?? null,
+    slaLabels: (repository.slaLabels ?? null) as Record<string, string> | null,
     lastCheckedAt: repository.lastCheckedAt,
     nextCheckAt: repository.nextCheckAt,
   };

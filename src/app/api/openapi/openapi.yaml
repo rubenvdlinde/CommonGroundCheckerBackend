@@ -324,6 +324,8 @@ paths:
                   $ref: "#/components/schemas/FixTerms"
                 kpiTargets:
                   $ref: "#/components/schemas/KpiTargets"
+                slaTerms:
+                  $ref: "#/components/schemas/SlaTerms"
       responses:
         "200":
           description: "Saved scoring configuration snapshot"
@@ -422,6 +424,8 @@ components:
             - string
             - null
           description: "The branch or tag scheduled scans use: null for the released version (the tag of the publiccode.yml softwareVersion, else the latest release), \"default-branch\", \"latest-release\", or a branch or tag name"
+        slaLabels:
+          $ref: "#/components/schemas/SlaLabels"
       required:
         - followed
     FollowSettings:
@@ -454,6 +458,8 @@ components:
             - null
           format: date-time
           description: "When the repository is next due for a scheduled check"
+        slaLabels:
+          $ref: "#/components/schemas/SlaLabels"
       required:
         - id
         - followed
@@ -933,6 +939,10 @@ components:
           $ref: "#/components/schemas/FixTerms"
         defaultKpiTargets:
           $ref: "#/components/schemas/KpiTargets"
+        slaTerms:
+          $ref: "#/components/schemas/SlaTerms"
+        defaultSlaTerms:
+          $ref: "#/components/schemas/SlaTerms"
       required:
         - scoringConfigId
         - complexityThreshold
@@ -1040,6 +1050,39 @@ components:
           type: integer
         verdict:
           type: integer
+    SlaLabels:
+      type:
+        - object
+        - null
+      description: "Label names (lower case) mapped to an SLA category, on top of the checker's map of GitHub's default labels. Null when the repository has none."
+      additionalProperties:
+        type: string
+        enum:
+          - blocking-bug
+          - bug
+          - question
+          - documentation
+          - feature-request
+          - no-fix-term
+          - ignore
+    SlaTerms:
+      type: object
+      description: "SLA response and fix terms per issue category, in working days (Monday to Friday, Europe/Amsterdam). Proposals; informative only."
+      additionalProperties:
+        type: object
+        properties:
+          respondDays:
+            type:
+              - integer
+              - null
+          fixDays:
+            description: "Working days, \"next-release\", or null for no fix term"
+            oneOf:
+              - type: integer
+              - type: string
+                enum:
+                  - next-release
+              - type: null
     KpiTargets:
       type: object
       description: "Target values per CHAOSS metric id: at least min, at most max. Durations in hours, release frequency in releases per 12 months. Informative only; proposals."

@@ -41,6 +41,7 @@ type DueRepository = {
   apiSpecificationLocations: string[];
   isRegister: boolean;
   scanRef: string | null;
+  slaLabels?: unknown;
 };
 
 function positiveNumber(value: string | undefined, fallback: number): number {
@@ -108,6 +109,9 @@ export function createScheduler(options: SchedulerOptions) {
           apiSpecificationLocations: repository.apiSpecificationLocations,
           isRegister: repository.isRegister,
           ...(repository.scanRef ? { ref: repository.scanRef } : {}),
+          ...(repository.slaLabels && typeof repository.slaLabels === "object"
+            ? { slaLabels: repository.slaLabels }
+            : {}),
         }),
         signal: controller.signal,
         dispatcher,
