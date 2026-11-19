@@ -173,7 +173,7 @@ describe("GET /api/repositories/{repoId}/usage", () => {
 });
 
 describe("POST /api/repositories/{repoId}/usage/confirmations", () => {
-  it("records a confirmation under its normalised name and returns the usage status", async () => {
+  it("records a confirmation under the usedBy spelling and returns the usage status", async () => {
     const response = await request("POST", "/api/repositories/repo-id/usage/confirmations", confirmationBody);
 
     expect(response.statusCode).toBe(201);
@@ -183,7 +183,7 @@ describe("POST /api/repositories/{repoId}/usage/confirmations", () => {
     expect(mockedPrisma.repoUserConfirmation.create).toHaveBeenCalledWith({
       data: {
         repoId: "repo-id",
-        organisation: "den HAAG",
+        organisation: "Den Haag",
         organisationKey: "den haag",
         confirmedOn: new Date("2026-11-10T00:00:00Z"),
         source: "https://example.org/register/den-haag",
@@ -191,6 +191,17 @@ describe("POST /api/repositories/{repoId}/usage/confirmations", () => {
       },
     });
     expect(JSON.parse(response.payload)).toHaveProperty("confirmedUserCount");
+  });
+
+  it("keeps the admin's spelling for an organisation that usedBy does not name", async () => {
+    await request("POST", "/api/repositories/repo-id/usage/confirmations", {
+      ...confirmationBody,
+      organisation: "Gemeente  Testdorp",
+    });
+
+    expect(mockedPrisma.repoUserConfirmation.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ organisation: "Gemeente Testdorp", organisationKey: "gemeente testdorp" }) as unknown,
+    });
   });
 
   it("refuses a second confirmation of the same organisation", async () => {

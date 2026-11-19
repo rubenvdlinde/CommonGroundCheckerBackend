@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { prisma } from "@/lib/db";
 import { requireAdminToken } from "@/lib/adminAuth";
-import { buildUsageStatus, parseConfirmationInput, parseSlaInput } from "@/lib/usage";
+import { buildUsageStatus, organisationKey, parseConfirmationInput, parseSlaInput } from "@/lib/usage";
 
 async function loadUsageStatus(repoId: string) {
   const [latest, confirmations, slas] = await Promise.all([
@@ -60,7 +60,17 @@ export function registerRepoUsageRoutes(fastify: FastifyInstance) {
         });
       }
 
-      await prisma.repoUserConfirmation.create({ data: { repoId, ...parsed.value } });
+      const latest = await prisma.repoAnalysis.findFirst({
+        where: { repoId },
+        orderBy: { checkedAt: "desc" },
+        select: { declaredUsers: true },
+      });
+      const declaredName = latest?.declaredUsers.find(
+        (name) => organisationKey(name) === parsed.value.organisationKey
+      );
+      await prisma.repoUserConfirmation.create({
+        data: { repoId, ...parsed.value, organisation: declaredName ?? parsed.value.organisation },
+      });
       return reply.status(201).send(await loadUsageStatus(repoId));
     } catch (err: unknown) {
       return sendError(reply, err);
