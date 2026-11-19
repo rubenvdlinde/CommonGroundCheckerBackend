@@ -489,6 +489,14 @@ components:
               format: date-time
             score:
               type: integer
+            rating:
+              $ref: "#/components/schemas/Rating"
+            categoryRatings:
+              $ref: "#/components/schemas/CategoryRatings"
+            aspectRatings:
+              $ref: "#/components/schemas/AspectRatings"
+            endorsement:
+              $ref: "#/components/schemas/Endorsement"
       required:
         - id
         - owner
@@ -582,6 +590,57 @@ components:
           description: "The branch or tag to scan; empty for the released version, \"default-branch\" for the default branch, \"latest-release\" for the newest stable release"
       required:
         - repoUrl
+    Rating:
+      type:
+        - number
+        - null
+      minimum: 0.5
+      maximum: 5.5
+      description: "Continuous rating from 0.5 to 5.5, shown as 1 to 5 stars; null when no criterion counts"
+    CategoryRatings:
+      type:
+        - object
+        - null
+      additionalProperties:
+        $ref: "#/components/schemas/Rating"
+      description: "Rating per category; a category is null when none of its aspects is rated"
+    AspectRating:
+      type: object
+      properties:
+        rating:
+          $ref: "#/components/schemas/Rating"
+        found:
+          type: integer
+          minimum: 0
+          description: "For a document-count aspect: the inputs that pass"
+        expected:
+          type: integer
+          minimum: 0
+          description: "For a document-count aspect: the inputs that were measured"
+      required:
+        - rating
+    AspectRatings:
+      type:
+        - object
+        - null
+      additionalProperties:
+        $ref: "#/components/schemas/AspectRating"
+      description: "Rating per aspect id"
+    Endorsement:
+      type:
+        - object
+        - null
+      properties:
+        passed:
+          type: boolean
+          description: "No mandatory criterion fails and the overall rating is at least 2.5"
+        reasons:
+          type: array
+          items:
+            type: string
+      required:
+        - passed
+        - reasons
     RepoAnalysisInput:
       type: object
       properties:
@@ -613,6 +672,14 @@ components:
           description: "The commit SHA that was scanned"
         score:
           type: integer
+        rating:
+          $ref: "#/components/schemas/Rating"
+        categoryRatings:
+          $ref: "#/components/schemas/CategoryRatings"
+        aspectRatings:
+          $ref: "#/components/schemas/AspectRatings"
+        endorsement:
+          $ref: "#/components/schemas/Endorsement"
         results:
           type: array
           items:
@@ -656,6 +723,14 @@ components:
           description: "The commit SHA that was scanned"
         score:
           type: integer
+        rating:
+          $ref: "#/components/schemas/Rating"
+        categoryRatings:
+          $ref: "#/components/schemas/CategoryRatings"
+        aspectRatings:
+          $ref: "#/components/schemas/AspectRatings"
+        endorsement:
+          $ref: "#/components/schemas/Endorsement"
         results:
           type: array
           items:

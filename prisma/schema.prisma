@@ -19,6 +19,10 @@ model RepoAnalysis {
   scannedRefKind String?
   scannedCommit  String?
   score     Int
+  rating    Float?
+  categoryRatings Json?
+  aspectRatings   Json?
+  endorsement     Json?
   results   Json
   createdAt DateTime @default(now())
 
