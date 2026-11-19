@@ -5,8 +5,8 @@
  * Names group when they are equal after trimming, collapsing whitespace and
  * ignoring case (`organisationKey`). Nothing else is merged: "Gemeente
  * Utrecht" and "Utrecht" stay two organisations. Names that only differ in
- * accents, punctuation or a prefix such as "Gemeente" are reported as near
- * duplicates for a person to review.
+ * accents, punctuation, a prefix such as "Gemeente" or one typo are reported
+ * as near duplicates for a person to review.
  */
 import { organisationKey } from "@/lib/usage";
 
@@ -112,15 +112,40 @@ export function looseOrganisationKey(name: string): string {
   return key.replace(/\s+/g, "");
 }
 
-/** Organisations that are listed separately but may be the same, for a person to check. */
+/** Whether two strings differ by at most one inserted, removed or replaced character. */
+function withinOneEdit(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i += 1;
+  if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1);
+  return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+}
+
+/** Loose keys this long or longer also match with one typo; shorter names such as Ede and Epe differ too little. */
+const TYPO_MIN_LENGTH = 6;
+
+/**
+ * Organisations that are listed separately but may be the same, for a person
+ * to check: their loose keys are equal, or differ by one typo.
+ */
 export function findNearDuplicates(groups: OrganisationGroup[]): NearDuplicate[] {
-  const byLooseKey = new Map<string, OrganisationGroup[]>();
-  for (const group of groups) {
-    const key = looseOrganisationKey(group.name);
-    if (!key) continue;
-    byLooseKey.set(key, [...(byLooseKey.get(key) ?? []), group]);
+  const keys = groups.map((group) => looseOrganisationKey(group.name));
+  const parent = groups.map((_, index) => index);
+  const root = (index: number): number => (parent[index] === index ? index : (parent[index] = root(parent[index])));
+
+  for (let a = 0; a < groups.length; a += 1) {
+    for (let b = a + 1; b < groups.length; b += 1) {
+      if (!keys[a] || !keys[b]) continue;
+      const similar =
+        keys[a] === keys[b] ||
+        (Math.min(keys[a].length, keys[b].length) >= TYPO_MIN_LENGTH && withinOneEdit(keys[a], keys[b]));
+      if (similar) parent[root(b)] = root(a);
+    }
   }
-  return [...byLooseKey.values()]
+
+  const clusters = new Map<number, OrganisationGroup[]>();
+  groups.forEach((group, index) => clusters.set(root(index), [...(clusters.get(root(index)) ?? []), group]));
+  return [...clusters.values()]
     .filter((members) => members.length > 1)
     .map((members) => ({
       names: members.map((member) => member.name),

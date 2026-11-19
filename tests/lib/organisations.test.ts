@@ -113,4 +113,16 @@ describe("findNearDuplicates", () => {
   it("returns nothing when every name is distinct", () => {
     expect(findNearDuplicates(aggregateOrganisations([{ repoId: "a", declaredUsers: ["Buren", "Haarlem"] }]))).toEqual([]);
   });
+
+  it("lists names that differ by one typo, but not short names", () => {
+    const groups = aggregateOrganisations([
+      { repoId: "a", declaredUsers: ["Gemeente Haarlem", "Gemeente Ede", "Rotterdam"] },
+      { repoId: "b", declaredUsers: ["Gemeente Haarlen", "Gemeente Epe", "Roterdam"] },
+    ]);
+
+    expect(findNearDuplicates(groups).map((duplicate) => duplicate.names)).toEqual([
+      ["Gemeente Haarlem", "Gemeente Haarlen"],
+      ["Roterdam", "Rotterdam"],
+    ]);
+  });
 });
