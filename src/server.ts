@@ -6,6 +6,7 @@ import { registerRepoAnalysesRoute } from "./app/api/repositories/[repoId]/analy
 import { registerRepoFollowRoute } from "./app/api/repositories/[repoId]/follow/route";
 import { registerRepoUsageRoutes } from "./app/api/repositories/[repoId]/usage/route";
 import { registerOrganisationsRoutes } from "./app/api/organisations/route";
+import { registerRepoDropsRoute } from "./app/api/repositories/[repoId]/drops/route";
 import { registerRepoHistoryRoute } from "./app/api/repo-history/route";
 import { registerRepositoriesExportRoute } from "./app/api/repositories/export/route";
 import { registerOpenApiRoute } from "./app/api/openapi/route";
@@ -23,6 +24,7 @@ export function buildServer() {
   app.register(registerRepoFollowRoute);
   app.register(registerRepoUsageRoutes);
   app.register(registerOrganisationsRoutes);
+  app.register(registerRepoDropsRoute);
   app.register(registerRepositoriesExportRoute);
   app.register(registerRepoHistoryRoute);
   app.register(registerOpenApiRoute);
@@ -58,6 +60,7 @@ export function buildServer() {
         checkerUrl: schedulerConfig.checkerUrl,
         tickSeconds: schedulerConfig.tickSeconds,
         maxConcurrent: schedulerConfig.maxConcurrent,
+        nightlyHour: schedulerConfig.nightlyHour,
       },
       "Scheduler started"
     );

@@ -11,6 +11,12 @@ vi.mock("@/lib/db", () => ({
     },
     repoAnalysis: {
       create: vi.fn(),
+      findFirst: vi.fn(() => Promise.resolve(null)),
+    },
+    maintenanceDrop: {
+      findMany: vi.fn(() => Promise.resolve([])),
+      create: vi.fn(),
+      update: vi.fn(),
     },
     $disconnect: vi.fn(),
   },
@@ -108,9 +114,37 @@ describe("PUT /api/repositories/{repoId}/follow", () => {
       followed: true,
       checkIntervalHours: 24,
       scanRef: null,
+      slaLabels: null,
       lastCheckedAt: "2026-11-01T10:00:00.000Z",
       nextCheckAt: "2026-11-02T10:00:00.000Z",
     });
+  });
+
+  it("stores a label map for the SLA times, lower case", async () => {
+    mockedPrisma.repo.findUnique.mockResolvedValue(storedRepo());
+
+    const response = await putFollow({ followed: true, slaLabels: { "Type: Bug": "bug", wontfix: "ignore" } });
+
+    expect(updateData()).toMatchObject({ slaLabels: { "type: bug": "bug", wontfix: "ignore" } });
+    expect(JSON.parse(response.payload)).toMatchObject({ slaLabels: { "type: bug": "bug", wontfix: "ignore" } });
+  });
+
+  it("keeps the stored label map when the request leaves it out", async () => {
+    mockedPrisma.repo.findUnique.mockResolvedValue(storedRepo({ slaLabels: { blocker: "blocking-bug" } }));
+
+    await putFollow({ followed: true });
+
+    expect(updateData()).not.toHaveProperty("slaLabels");
+  });
+
+  it("returns 400 for a label mapped to something that is not a category", async () => {
+    mockedPrisma.repo.findUnique.mockResolvedValue(storedRepo());
+
+    const response = await putFollow({ followed: true, slaLabels: { bug: "urgent" } });
+
+    expect(response.statusCode).toBe(400);
+    expect((JSON.parse(response.payload) as { error: string }).error).toContain("Invalid slaLabels");
+    expect(mockedPrisma.repo.update).not.toHaveBeenCalled();
   });
 
   it("stores a branch to scan", async () => {

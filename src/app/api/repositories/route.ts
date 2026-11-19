@@ -9,6 +9,36 @@ function normalizeStringArray(value: unknown): string[] {
     : [];
 }
 
+interface LatestAnalysisRecord {
+  checkedAt: Date;
+  score: number;
+  rating: number | null;
+  categoryRatings: unknown;
+  aspectRatings: unknown;
+  endorsement: unknown;
+  checklistVersion: string | null;
+}
+
+function toLatestAnalysis(analysis: LatestAnalysisRecord) {
+  return {
+    checkedAt: analysis.checkedAt,
+    score: analysis.score,
+    rating: analysis.rating ?? null,
+    categoryRatings: analysis.categoryRatings ?? null,
+    aspectRatings: analysis.aspectRatings ?? null,
+    endorsement: analysis.endorsement ?? null,
+    checklistVersion: analysis.checklistVersion ?? null,
+  };
+}
+
+/** How many drops are open, and how many of those are past their fix-by date. */
+function openDropCounts(drops: Array<{ fixBy: Date }>, now: number) {
+  return {
+    openDropCount: drops.length,
+    overdueDropCount: drops.filter((drop) => drop.fixBy.getTime() < now).length,
+  };
+}
+
 export function registerRepositoriesRoutes(fastify: FastifyInstance) {
   fastify.get("/api/repositories", async (request, reply) => {
     try {
@@ -28,14 +58,24 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
             select: {
               checkedAt: true,
               score: true,
+              rating: true,
+              categoryRatings: true,
+              aspectRatings: true,
+              endorsement: true,
+              checklistVersion: true,
             },
           },
           _count: {
             select: { analyses: true },
           },
+          drops: {
+            where: { resolvedAt: null },
+            select: { fixBy: true },
+          },
         },
       });
 
+      const now = Date.now();
       return {
         repositories: repositories.map((repository) => ({
           id: repository.id,
@@ -50,11 +90,9 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
           updatedAt: repository.updatedAt,
           ...toFollowFields(repository),
           analysisCount: repository._count.analyses,
+          ...openDropCounts(repository.drops ?? [], now),
           latestAnalysis: repository.analyses[0]
-            ? {
-                checkedAt: repository.analyses[0].checkedAt,
-                score: repository.analyses[0].score,
-              }
+            ? toLatestAnalysis(repository.analyses[0])
             : null,
         })),
       };
@@ -166,7 +204,15 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
           analyses: {
             orderBy: { checkedAt: "desc" },
             take: 1,
-            select: { checkedAt: true, score: true },
+            select: {
+              checkedAt: true,
+              score: true,
+              rating: true,
+              categoryRatings: true,
+              aspectRatings: true,
+              endorsement: true,
+              checklistVersion: true,
+            },
           },
         },
       });
@@ -185,10 +231,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
         ...toFollowFields(repoRecord),
         analysisCount: repoRecord._count.analyses,
         latestAnalysis: repoRecord.analyses[0]
-          ? {
-              checkedAt: repoRecord.analyses[0].checkedAt,
-              score: repoRecord.analyses[0].score,
-            }
+          ? toLatestAnalysis(repoRecord.analyses[0])
           : null,
       };
     } catch (err: unknown) {

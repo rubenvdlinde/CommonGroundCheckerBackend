@@ -1,5 +1,17 @@
 import type { CheckStatus, RequirementLevel } from "./types";
 import { prisma } from "./db";
+import {
+  effectiveFixTerms,
+  effectiveKpiTargets,
+  effectiveSlaTerms,
+  parseFixTerms,
+  parseKpiTargets,
+  parseSlaTerms,
+  type FixTerms,
+  type KpiTarget,
+  type SlaCategory,
+  type SlaTerm,
+} from "./maintenanceTerms";
 
 export interface CriterionConfig {
   weight: number;
@@ -13,6 +25,9 @@ interface ScoringConfigOverrides {
   complexityThreshold?: number;
   complexityMaxCcnThreshold?: number;
   spectralRulesetSource?: string;
+  fixTerms?: Partial<FixTerms>;
+  kpiTargets?: Record<string, KpiTarget>;
+  slaTerms?: Partial<Record<SlaCategory, SlaTerm>>;
 }
 
 export interface ScoringConfig {
@@ -22,6 +37,12 @@ export interface ScoringConfig {
   complexityThreshold: number;
   complexityMaxCcnThreshold: number;
   spectralRulesetSource: string;
+  /** Days to recover a drop; proposals until a governance decision sets them */
+  fixTerms: FixTerms;
+  /** Target values of the project health KPIs per metric id; informative only */
+  kpiTargets: Record<string, KpiTarget>;
+  /** SLA response and fix terms for issues, in working days; proposals, informative only */
+  slaTerms: Record<SlaCategory, SlaTerm>;
 }
 
 export interface ActiveScoringConfig {
@@ -153,6 +174,9 @@ function buildScoringConfig(overrides?: ScoringConfigOverrides): ScoringConfig {
     spectralRulesetSource: sanitizeSpectralRulesetSource(
       overrides?.spectralRulesetSource
     ),
+    fixTerms: effectiveFixTerms(overrides?.fixTerms),
+    kpiTargets: effectiveKpiTargets(overrides?.kpiTargets),
+    slaTerms: effectiveSlaTerms(overrides?.slaTerms),
   };
 }
 
@@ -221,6 +245,9 @@ function parseOverridesFromDbPayload(payload: unknown): ScoringConfigOverrides {
       typeof spectralRulesetSourceRaw === "string"
         ? sanitizeSpectralRulesetSource(spectralRulesetSourceRaw)
         : undefined,
+    fixTerms: parseFixTerms(candidate.fixTerms),
+    kpiTargets: parseKpiTargets(candidate.kpiTargets),
+    slaTerms: parseSlaTerms(candidate.slaTerms),
   };
 }
 
@@ -232,6 +259,9 @@ type ScoringConfigDbRow = {
   complexityThreshold: number | null;
   complexityMaxCcnThreshold: number | null;
   spectralRulesetSource: string | null;
+  fixTerms?: unknown;
+  kpiTargets?: unknown;
+  slaTerms?: unknown;
 };
 
 async function readLatestDbOverrides(): Promise<{
@@ -248,6 +278,9 @@ async function readLatestDbOverrides(): Promise<{
       complexityThreshold: true,
       complexityMaxCcnThreshold: true,
       spectralRulesetSource: true,
+      fixTerms: true,
+      kpiTargets: true,
+      slaTerms: true,
     },
   })) as ScoringConfigDbRow | null;
 
@@ -262,6 +295,9 @@ async function readLatestDbOverrides(): Promise<{
       complexityThreshold: row.complexityThreshold,
       complexityMaxCcnThreshold: row.complexityMaxCcnThreshold,
       spectralRulesetSource: row.spectralRulesetSource,
+      fixTerms: row.fixTerms,
+      kpiTargets: row.kpiTargets,
+      slaTerms: row.slaTerms,
     }),
   };
 }
@@ -284,6 +320,9 @@ async function createDbOverridesRecord(
       spectralRulesetSource: sanitizeSpectralRulesetSource(
         overrides.spectralRulesetSource
       ),
+      fixTerms: (overrides.fixTerms ?? {}),
+      kpiTargets: (overrides.kpiTargets ?? {}),
+      slaTerms: overrides.slaTerms ?? {},
     },
   })) as { id: string };
 
@@ -324,9 +363,25 @@ export async function saveCriterionWeights(
   complexityMaxCcnThreshold?: number,
   criterionRequirementLevels?: Record<string, string>,
   categoryWeights?: Record<string, number>,
-  spectralRulesetSource?: string
+  spectralRulesetSource?: string,
+  /** Omitted parts keep the stored values. */
+  maintenance: {
+    fixTerms?: Partial<FixTerms>;
+    kpiTargets?: Record<string, KpiTarget>;
+    slaTerms?: Partial<Record<SlaCategory, SlaTerm>>;
+  } = {}
 ): Promise<ActiveScoringConfig> {
+  // Fix terms, KPI targets and SLA terms that are not posted keep their stored values.
+  const latest =
+    maintenance.fixTerms === undefined ||
+    maintenance.kpiTargets === undefined ||
+    maintenance.slaTerms === undefined
+      ? await readLatestDbOverrides().catch(() => null)
+      : null;
   const overrides: ScoringConfigOverrides = {
+    fixTerms: maintenance.fixTerms ?? latest?.overrides.fixTerms,
+    kpiTargets: maintenance.kpiTargets ?? latest?.overrides.kpiTargets,
+    slaTerms: maintenance.slaTerms ?? latest?.overrides.slaTerms,
     criterionWeights: {},
     criterionRequirementLevels: {},
     categoryWeights,

@@ -1,3 +1,5 @@
+import { nextNightlyCheckAt, readNightlyHour } from "@/lib/nightly";
+
 /** Check intervals an admin can choose: daily, weekly and monthly (30 days). */
 export const ALLOWED_CHECK_INTERVAL_HOURS = [24, 168, 720] as const;
 
@@ -13,16 +15,21 @@ export function isAllowedCheckInterval(value: unknown): value is number {
 /**
  * Computes when a repository is due for its next check. Unfollowed
  * repositories are never due. A followed repository that was never checked
- * is due immediately.
+ * is due immediately. With a nightly hour (`SCHEDULER_NIGHTLY_HOUR`), a
+ * check is due at that hour in Europe/Amsterdam once its interval is up.
  */
 export function computeNextCheckAt(
   followed: boolean,
   checkIntervalHours: number | null,
   lastCheckedAt: Date | null,
-  now: Date = new Date()
+  now: Date = new Date(),
+  nightlyHour: number | null = readNightlyHour()
 ): Date | null {
   if (!followed || !checkIntervalHours) return null;
   if (!lastCheckedAt) return now;
+  if (nightlyHour !== null) {
+    return nextNightlyCheckAt(lastCheckedAt, checkIntervalHours, nightlyHour);
+  }
   return new Date(lastCheckedAt.getTime() + checkIntervalHours * 60 * 60 * 1000);
 }
 
@@ -59,6 +66,7 @@ type FollowFieldsSource = {
   followed: boolean;
   checkIntervalHours: number | null;
   scanRef?: string | null;
+  slaLabels?: unknown;
   lastCheckedAt: Date | null;
   nextCheckAt: Date | null;
 };
@@ -68,6 +76,7 @@ export function toFollowFields(repository: FollowFieldsSource) {
     followed: repository.followed,
     checkIntervalHours: repository.checkIntervalHours,
     scanRef: repository.scanRef ?? null,
+    slaLabels: (repository.slaLabels ?? null) as Record<string, string> | null,
     lastCheckedAt: repository.lastCheckedAt,
     nextCheckAt: repository.nextCheckAt,
   };

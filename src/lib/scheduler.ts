@@ -1,6 +1,7 @@
 import { Agent, fetch as undiciFetch, type Dispatcher } from "undici";
 import { prisma } from "@/lib/db";
 import { computeNextCheckAt } from "@/lib/follow";
+import { readNightlyHour } from "@/lib/nightly";
 
 type SchedulerLogger = {
   info: (obj: object, msg?: string) => void;
@@ -40,6 +41,7 @@ type DueRepository = {
   apiSpecificationLocations: string[];
   isRegister: boolean;
   scanRef: string | null;
+  slaLabels?: unknown;
 };
 
 function positiveNumber(value: string | undefined, fallback: number): number {
@@ -54,6 +56,7 @@ export function readSchedulerConfig(env: NodeJS.ProcessEnv = process.env) {
     tickSeconds: positiveNumber(env.SCHEDULER_TICK_SECONDS, 60),
     maxConcurrent: Math.floor(positiveNumber(env.SCHEDULER_MAX_CONCURRENT, 2)),
     scanTimeoutSeconds: positiveNumber(env.SCHEDULER_SCAN_TIMEOUT_SECONDS, 900),
+    nightlyHour: readNightlyHour(env),
   };
 }
 
@@ -106,6 +109,9 @@ export function createScheduler(options: SchedulerOptions) {
           apiSpecificationLocations: repository.apiSpecificationLocations,
           isRegister: repository.isRegister,
           ...(repository.scanRef ? { ref: repository.scanRef } : {}),
+          ...(repository.slaLabels && typeof repository.slaLabels === "object"
+            ? { slaLabels: repository.slaLabels }
+            : {}),
         }),
         signal: controller.signal,
         dispatcher,

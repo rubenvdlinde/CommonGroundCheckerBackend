@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { prisma } from "@/lib/db";
 import { toFollowFields } from "@/lib/follow";
+import { listRepositoryDrops } from "@/lib/drops";
 
 type RepoHistoryRepository = {
   id: string;
@@ -23,7 +24,15 @@ type RepoHistoryRepository = {
   nextCheckAt: Date | null;
   createdAt: string;
   updatedAt: string;
-  analyses: Array<{ checkedAt: Date; score: number }>;
+  analyses: Array<{
+    checkedAt: Date;
+    score: number;
+    rating: number | null;
+    categoryRatings: Record<string, number | null> | null;
+    aspectRatings: Record<string, { rating: number | null; found?: number; expected?: number }> | null;
+    endorsement: { passed: boolean; reasons: string[] } | null;
+    checklistVersion: string | null;
+  }>;
 };
 
 export function registerRepoHistoryRoute(fastify: FastifyInstance) {
@@ -98,6 +107,7 @@ export function registerRepoHistoryRoute(fastify: FastifyInstance) {
           updatedAt: repository.updatedAt,
         },
         analyses: repository.analyses,
+        drops: await listRepositoryDrops(repository.id),
       };
     } catch (err: unknown) {
       let message = "An unexpected error occurred.";

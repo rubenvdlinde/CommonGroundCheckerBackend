@@ -21,8 +21,15 @@ model RepoAnalysis {
   declaredUsers      String[] @default([])
   declaredUserCount  Int?
   score     Int
+  rating    Float?
+  categoryRatings Json?
+  aspectRatings   Json?
+  endorsement     Json?
+  checklistVersion String?
   results   Json
   createdAt DateTime @default(now())
+  drops     MaintenanceDrop[] @relation("DropAnalysis")
+  resolvedDrops MaintenanceDrop[] @relation("DropResolvedAnalysis")
 
   @@index([repoId])
   @@index([scoringConfigId])
@@ -52,6 +59,7 @@ model Repo {
   followed                 Boolean   @default(false)
   checkIntervalHours       Int?
   scanRef                  String?
+  slaLabels                Json?
   lastCheckedAt            DateTime?
   nextCheckAt              DateTime?
   webhookTokenHash         String?
@@ -59,6 +67,7 @@ model Repo {
   updatedAt DateTime       @updatedAt
   analyses  RepoAnalysis[]
   slas      RepoSla[]
+  drops     MaintenanceDrop[]
 
   @@index([owner])
   @@index([name])
@@ -87,7 +96,39 @@ model ScoringConfig {
   complexityThreshold        Int            @default(15)
   complexityMaxCcnThreshold  Int            @default(30)
   spectralRulesetSource      String         @default("https://static.developer.overheid.nl/adr/ruleset.yaml")
+  fixTerms                   Json           @default("{}")
+  kpiTargets                 Json           @default("{}")
+  slaTerms                   Json           @default("{}")
   createdAt                  DateTime       @default(now())
   updatedAt                  DateTime       @updatedAt
   analyses                   RepoAnalysis[]
+}
+
+/// A criterion, rating or verdict that got worse between two analyses of
+/// the same repository and scanned ref kind. Open until a later analysis
+/// recovers it.
+model MaintenanceDrop {
+  id                 String        @id @default(uuid())
+  repoId             String
+  repository         Repo          @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  analysisId         String
+  analysis           RepoAnalysis  @relation("DropAnalysis", fields: [analysisId], references: [id], onDelete: Cascade)
+  previousAnalysisId String
+  scannedRefKind     String?
+  checklistVersion   String?
+  kind               String
+  subject            String
+  label              String
+  fromValue          String
+  toValue            String
+  detectedAt         DateTime
+  fixTermDays        Int
+  fixBy              DateTime
+  resolvedAt         DateTime?
+  resolvedAnalysisId String?
+  resolvedAnalysis   RepoAnalysis? @relation("DropResolvedAnalysis", fields: [resolvedAnalysisId], references: [id], onDelete: SetNull)
+  createdAt          DateTime      @default(now())
+
+  @@index([repoId, resolvedAt])
+  @@index([analysisId])
 }

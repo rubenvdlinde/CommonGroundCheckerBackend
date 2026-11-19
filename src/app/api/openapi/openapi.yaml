@@ -352,6 +352,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/repositories/{repoId}/drops:
+    get:
+      summary: "List the drops of a repository, newest first"
+      description: "A drop is a criterion that went from pass to fail, a rating that lost a star, or the lost verdict \"suitable for Common Ground\", measured against the previous analysis of the same scanned ref kind. A drop resolves when a later analysis recovers it."
+      parameters:
+        - name: repoId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - open
+              - all
+            default: all
+      responses:
+        "200":
+          description: "The drops, at most 100"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  drops:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MaintenanceDrop"
+                required:
+                  - drops
+        "400":
+          description: "Invalid state"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: "Repository not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/repo-history:
     get:
       summary: "Return analysis history for a repository"
@@ -423,6 +468,12 @@ paths:
                   type: number
                 spectralRulesetSource:
                   type: string
+                fixTerms:
+                  $ref: "#/components/schemas/FixTerms"
+                kpiTargets:
+                  $ref: "#/components/schemas/KpiTargets"
+                slaTerms:
+                  $ref: "#/components/schemas/SlaTerms"
       responses:
         "200":
           description: "Saved scoring configuration snapshot"
@@ -521,6 +572,8 @@ components:
             - string
             - null
           description: "The branch or tag scheduled scans use: null for the released version (the tag of the publiccode.yml softwareVersion, else the latest release), \"default-branch\", \"latest-release\", or a branch or tag name"
+        slaLabels:
+          $ref: "#/components/schemas/SlaLabels"
       required:
         - followed
     FollowSettings:
@@ -553,6 +606,8 @@ components:
             - null
           format: date-time
           description: "When the repository is next due for a scheduled check"
+        slaLabels:
+          $ref: "#/components/schemas/SlaLabels"
       required:
         - id
         - followed
@@ -837,6 +892,12 @@ components:
           description: "When the repository is next due for a scheduled check"
         analysisCount:
           type: integer
+        openDropCount:
+          type: integer
+          description: "Drops not yet recovered"
+        overdueDropCount:
+          type: integer
+          description: "Open drops past their fix-by date"
         latestAnalysis:
           type:
             - object
@@ -847,6 +908,16 @@ components:
               format: date-time
             score:
               type: integer
+            rating:
+              $ref: "#/components/schemas/Rating"
+            categoryRatings:
+              $ref: "#/components/schemas/CategoryRatings"
+            aspectRatings:
+              $ref: "#/components/schemas/AspectRatings"
+            endorsement:
+              $ref: "#/components/schemas/Endorsement"
+            checklistVersion:
+              $ref: "#/components/schemas/ChecklistVersion"
       required:
         - id
         - owner
@@ -940,6 +1011,63 @@ components:
           description: "The branch or tag to scan; empty for the released version, \"default-branch\" for the default branch, \"latest-release\" for the newest stable release"
       required:
         - repoUrl
+    Rating:
+      type:
+        - number
+        - null
+      minimum: 0.5
+      maximum: 5.5
+      description: "Continuous rating from 0.5 to 5.5, shown as 1 to 5 stars; null when no criterion counts"
+    CategoryRatings:
+      type:
+        - object
+        - null
+      additionalProperties:
+        $ref: "#/components/schemas/Rating"
+      description: "Rating per category; a category is null when none of its aspects is rated"
+    AspectRating:
+      type: object
+      properties:
+        rating:
+          $ref: "#/components/schemas/Rating"
+        found:
+          type: integer
+          minimum: 0
+          description: "For a document-count aspect: the inputs that pass"
+        expected:
+          type: integer
+          minimum: 0
+          description: "For a document-count aspect: the inputs that were measured"
+      required:
+        - rating
+    AspectRatings:
+      type:
+        - object
+        - null
+      additionalProperties:
+        $ref: "#/components/schemas/AspectRating"
+      description: "Rating per aspect id"
+    Endorsement:
+      type:
+        - object
+        - null
+      properties:
+        passed:
+          type: boolean
+          description: "No mandatory criterion fails and the overall rating is at least 2.5"
+        reasons:
+          type: array
+          items:
+            type: string
+      required:
+        - passed
+        - reasons
+    ChecklistVersion:
+      type:
+        - string
+        - null
+      pattern: "^[0-9A-Za-z][0-9A-Za-z.\\-]{0,31}$"
+      description: "The checklist version the analysis was measured against, for example 2026.1; null for older analyses"
     RepoAnalysisInput:
       type: object
       properties:
@@ -976,6 +1104,16 @@ components:
           description: "The organisations under usedBy in publiccode.yml. Leave out when the scan did not read them"
         score:
           type: integer
+        rating:
+          $ref: "#/components/schemas/Rating"
+        categoryRatings:
+          $ref: "#/components/schemas/CategoryRatings"
+        aspectRatings:
+          $ref: "#/components/schemas/AspectRatings"
+        endorsement:
+          $ref: "#/components/schemas/Endorsement"
+        checklistVersion:
+          $ref: "#/components/schemas/ChecklistVersion"
         results:
           type: array
           items:
@@ -1028,6 +1166,16 @@ components:
           description: "Organisations under usedBy at this analysis, or null when it did not record them"
         score:
           type: integer
+        rating:
+          $ref: "#/components/schemas/Rating"
+        categoryRatings:
+          $ref: "#/components/schemas/CategoryRatings"
+        aspectRatings:
+          $ref: "#/components/schemas/AspectRatings"
+        endorsement:
+          $ref: "#/components/schemas/Endorsement"
+        checklistVersion:
+          $ref: "#/components/schemas/ChecklistVersion"
         results:
           type: array
           items:
@@ -1106,9 +1254,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RepoAnalysisOutput"
+        drops:
+          type: array
+          description: "The drops of the repository, newest first, at most 100"
+          items:
+            $ref: "#/components/schemas/MaintenanceDrop"
       required:
         - repository
         - analyses
+        - drops
     ScoringConfigResponse:
       type: object
       properties:
@@ -1161,6 +1315,18 @@ components:
           type: integer
         defaultSpectralRulesetSource:
           type: string
+        fixTerms:
+          $ref: "#/components/schemas/FixTerms"
+        kpiTargets:
+          $ref: "#/components/schemas/KpiTargets"
+        defaultFixTerms:
+          $ref: "#/components/schemas/FixTerms"
+        defaultKpiTargets:
+          $ref: "#/components/schemas/KpiTargets"
+        slaTerms:
+          $ref: "#/components/schemas/SlaTerms"
+        defaultSlaTerms:
+          $ref: "#/components/schemas/SlaTerms"
       required:
         - scoringConfigId
         - complexityThreshold
@@ -1175,6 +1341,147 @@ components:
         - defaultComplexityThreshold
         - defaultComplexityMaxCcnThreshold
         - defaultSpectralRulesetSource
+    MaintenanceDrop:
+      type: object
+      properties:
+        id:
+          type: string
+        repoId:
+          type: string
+        analysisId:
+          type: string
+          description: "The analysis that showed the drop"
+        previousAnalysisId:
+          type: string
+          description: "The analysis it was compared with"
+        scannedRefKind:
+          type:
+            - string
+            - null
+        checklistVersion:
+          type:
+            - string
+            - null
+          description: "The checklist version both compared analyses were measured against"
+        kind:
+          type: string
+          enum:
+            - criterion
+            - rating
+            - verdict
+        subject:
+          type: string
+          description: "The criterion id, \"overall\" or a category name, or \"suitable\""
+        label:
+          type: string
+        from:
+          type: string
+          description: "\"pass\", a number of stars, or \"suitable\""
+        to:
+          type: string
+          description: "\"fail\", a number of stars, or \"not suitable\""
+        detectedAt:
+          type: string
+          format: date-time
+        fixTermDays:
+          type: integer
+        fixBy:
+          type: string
+          format: date-time
+        resolvedAt:
+          type:
+            - string
+            - null
+          format: date-time
+        resolvedAnalysisId:
+          type:
+            - string
+            - null
+        overdue:
+          type: boolean
+          description: "Open past its fix-by date"
+      required:
+        - id
+        - repoId
+        - analysisId
+        - previousAnalysisId
+        - scannedRefKind
+        - kind
+        - subject
+        - label
+        - from
+        - to
+        - detectedAt
+        - fixTermDays
+        - fixBy
+        - resolvedAt
+        - resolvedAnalysisId
+        - overdue
+    FixTerms:
+      type: object
+      description: "Days to recover a drop. The defaults are proposals until a governance decision sets the terms."
+      properties:
+        criteria:
+          type: object
+          description: "Per criterion id"
+          additionalProperties:
+            type: integer
+        ratings:
+          type: object
+          description: "Per rating: overall or a category name"
+          additionalProperties:
+            type: integer
+        mandatory:
+          type: integer
+        recommended:
+          type: integer
+        rating:
+          type: integer
+        verdict:
+          type: integer
+    SlaLabels:
+      type:
+        - object
+        - null
+      description: "Label names (lower case) mapped to an SLA category, on top of the checker's map of GitHub's default labels. Null when the repository has none."
+      additionalProperties:
+        type: string
+        enum:
+          - blocking-bug
+          - bug
+          - question
+          - documentation
+          - feature-request
+          - no-fix-term
+          - ignore
+    SlaTerms:
+      type: object
+      description: "SLA response and fix terms per issue category, in working days (Monday to Friday, Europe/Amsterdam). Proposals; informative only."
+      additionalProperties:
+        type: object
+        properties:
+          respondDays:
+            type:
+              - integer
+              - null
+          fixDays:
+            description: "Working days, \"next-release\", or null for no fix term"
+            oneOf:
+              - type: integer
+              - type: string
+                enum:
+                  - next-release
+              - type: null
+    KpiTargets:
+      type: object
+      description: "Target values per CHAOSS metric id: at least min, at most max. Durations in hours, release frequency in releases per 12 months. Informative only; proposals."
+      additionalProperties:
+        type: object
+        properties:
+          min:
+            type: number
+          max:
+            type: number
     RepoMeta:
       type: object
       properties:

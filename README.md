@@ -45,6 +45,7 @@ The API supports three types of resources:
 | `POST` | `/api/repositories` | Create or update repository metadata |
 | `POST` | `/api/repositories/{repoId}/analyses` | Persist a new analysis result for an existing repository |
 | `POST` | `/api/webhook` | Register a repository for scheduled rescans or trigger a rescan from CI |
+| `GET` | `/api/repositories/{repoId}/drops` | List the drops of a repository, with `?state=open` only the open ones |
 | `PUT` | `/api/repositories/{repoId}/follow` | Follow or unfollow a repository for scheduled rescans (admin token required) |
 | `GET` | `/api/repositories/{repoId}/usage` | Declared users and the SLAs of a repository |
 | `POST` | `/api/repositories/{repoId}/usage/slas` | Record an SLA (admin token required) |
@@ -59,10 +60,10 @@ The API supports three types of resources:
 
 - `/api/repositories` expects JSON metadata containing `repoUrl` and optional repository fields.
 - The literal OpenAPI specification is stored in `src/app/api/openapi/openapi.yaml` and served by `/api/openapi`.
-- `/api/repositories/{repoId}/analyses` expects analysis result payloads including `checkedAt`, `score`, and `results`, and optionally `scannedRef`, `scannedRefKind` (why that ref was chosen: `declared-version`, `release`, `tag`, `branch`, `default-branch` or `default-branch-fallback`) and `scannedCommit`: the branch or tag and commit that were scanned.
 - `/api/repositories/{repoId}/analyses` also accepts `declaredUsers`, the organisations under `usedBy` in publiccode.yml. The analysis stores the names, without blanks and without duplicates that differ only in case or spacing, and their number as `declaredUserCount`. Without `declaredUsers` the count stays `null`.
 - `/api/repositories/{repoId}/usage/slas` expects `{ "party": "VNG", "maintainer": "...", "startsOn": "2026-01-01", "until": "2027-12-31", "link": "https://..." }`; `link` is optional. Whether an SLA is still valid is decided by the checker, which reads `until` as the last day it applies.
 - `/api/organisations` reads the `declaredUsers` of the latest analysis of every followed repository. Names group when they are equal after trimming, collapsing whitespace and ignoring case; the most common spelling is the display name and gives the slug. Names that differ in anything else, such as "Gemeente Utrecht" and "Utrecht", stay separate. Names that differ only in accents, punctuation, a prefix such as "Gemeente" or one typo are listed under `nearDuplicates` for a person to review. Organisations are sorted by name, never ranked.
+- `/api/repositories/{repoId}/analyses` expects analysis result payloads including `checkedAt`, `score`, and `results`, and optionally `scannedRef`, `scannedRefKind` (why that ref was chosen: `declared-version`, `release`, `tag`, `branch`, `default-branch` or `default-branch-fallback`) and `scannedCommit`: the branch or tag and commit that were scanned. It also accepts the optional `rating` (0.5 to 5.5 or null), `categoryRatings` and `aspectRatings` (ratings per category and per aspect), `endorsement` (`{ passed, reasons }`) and `checklistVersion` (the checklist version the analysis was measured against, for example `2026.1`); the history, the repository list's latest analysis and the CSV export return them. Analyses stored before the checklist had versions have `checklistVersion: null`.
 - `/api/admin/scoring` exposes and persists custom scoring parameters for criterion weights, complexity thresholds, and Spectral ruleset selection.
 - `/api/repositories/{repoId}/follow` expects `{ "followed": true, "checkIntervalHours": 168 }`. The interval is `24` (daily), `168` (weekly) or `720` (monthly); when omitted, the stored interval is kept, or weekly is used when following for the first time. An optional `scanRef` chooses what scheduled scans read: empty or `null` lets the checker scan the released version (the tag of the publiccode.yml `softwareVersion`, else the newest stable release or semver tag, else the default branch with a warning), `default-branch` the default branch, `latest-release` the newest stable release, or a branch or tag name such as `development`; when omitted, the stored value is kept.
 
@@ -89,10 +90,48 @@ Before a scan starts, the repository is claimed in the database by moving `nextC
 | `SCHEDULER_TICK_SECONDS` | `60` | How often due repositories are looked up |
 | `SCHEDULER_MAX_CONCURRENT` | `2` | Maximum number of scans running at once in this process |
 | `SCHEDULER_SCAN_TIMEOUT_SECONDS` | `900` | A scan that takes longer is aborted and retried at the next interval |
+| `SCHEDULER_NIGHTLY_HOUR` | none | A whole hour from `0` to `23`. When set, scheduled checks run at that hour in Europe/Amsterdam time once their interval is up: a daily repository every night, a weekly one on the night its week is up. A check that ran less than 6 hours before that hour is not repeated that night |
 
 The scheduler stops when the server closes (also on `SIGINT` and `SIGTERM`); scans still in flight are aborted and picked up again at their next interval.
 
 `POST /api/repositories` accepts an optional boolean `isRegister`, stored with the repository and passed on to scheduled rescans.
+
+### Drops and fix terms
+
+After an analysis is stored, it is compared with the previous analysis of the same repository, the same scanned ref kind (`scannedRefKind`) and the same checklist version (`checklistVersion`). A new checklist version, or an analysis without one, starts a new baseline: a change of the checker itself is never a drop. A drop is recorded when:
+
+- a criterion goes from `pass` to `fail` (informative criteria are left out)
+- the overall rating or a category rating loses a whole star
+- the verdict "suitable for Common Ground" (`endorsement.passed`) is lost
+
+Each drop gets a fix-by date: the moment it was detected (the analysis's `checkedAt`) plus the fix term in days. A drop is open until a later analysis of the same ref kind recovers it, also under a newer checklist version: the criterion passes, the rating has its stars back, or the verdict is suitable again. An open drop past its fix-by date is `overdue`. A subject with an open drop gets no second drop.
+
+The fix terms are part of the scoring configuration (`fixTerms` in `/api/admin/scoring`). The defaults are proposals, until a governance decision sets the real terms:
+
+| Drop | Proposed term |
+|---|---|
+| Open Source Health (known vulnerabilities in dependencies) or secret scanning | 14 days |
+| Any other mandatory criterion | 30 days |
+| A recommended criterion | 90 days |
+| The Maintainability rating loses a star | 90 days |
+| The overall rating or another category rating loses a star | 60 days |
+| The verdict "suitable for Common Ground" is lost | 30 days |
+
+The scoring configuration also holds `kpiTargets`: proposed target values for the CHAOSS project health metrics the checker shows. They are informative only: they never give stars and never count towards the verdict.
+
+`slaTerms` holds the proposed SLA response and fix terms for issues, in working days (Monday to Friday, Europe/Amsterdam). The checker measures them on the issues of a repository and shows them for information:
+
+| Category | Respond within | Fix within |
+|---|---|---|
+| Critical vulnerability | 1 | 7 |
+| High vulnerability | 2 | 30 |
+| Blocking bug | 2 | 10 |
+| Other bug | 5 | the next stable release (`"next-release"`) |
+| Question, documentation, feature request, unclassified | 10 | no fix term (development, outside maintenance) |
+
+The checker classifies issues by GitHub's default labels, so a repository needs no setup. A followed repository can add to that map with `slaLabels` on `/api/repositories/{repoId}/follow`: an object of label names (matched case-insensitively) to `blocking-bug`, `bug`, `question`, `documentation`, `feature-request`, `no-fix-term` (keeps the response term, like `wontfix`) or `ignore` (switches a default label off); `null` clears it. Scheduled scans pass it to the checker as `slaLabels`.
+
+When `NOTIFY_WEBHOOK_URL` is set, every new drop is posted to it as JSON: `{ "event": "maintenance.drop", "repository": { id, repoUrl, owner, name }, "drop": { ... } }`, with the drop as `/api/repositories/{repoId}/drops` returns it. A failing webhook is logged; it never fails storing the analysis. There is no email.
 
 ### Rescan webhook
 
@@ -177,6 +216,7 @@ The service uses PostgreSQL as its primary datastore. Prisma is used for type-sa
 - `Repo` � stores repository metadata, GitHub owner/name, repository URL, topics, license, and discovered locations.
 - `RepoAnalysis` � stores analysis run results, score, checked timestamp, version information, and raw results payload.
 - `ScoringConfig` � stores a snapshot of scoring configuration used for a run, including criterion weights and thresholds.
+- `MaintenanceDrop` stores a criterion, rating or verdict that got worse between two analyses, with its fix-by date and when it was resolved.
 
 The Prisma schema is defined in `prisma/schema.prisma`. Generated Prisma client code is located in `src/generated/prisma`.
 
