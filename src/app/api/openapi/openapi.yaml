@@ -1065,6 +1065,13 @@ components:
                 - string
                 - null
               description: "developmentStatus of the scanned publiccode.yml; null when the file or the field is missing"
+            standardsEvidence:
+              type:
+                - array
+                - null
+              items:
+                type: string
+              description: "Evidence of the Supported standards result (declared in publiccode.yml, found in OpenAPI files); null when the analysis has no such result. Only in the repository list."
       required:
         - id
         - owner

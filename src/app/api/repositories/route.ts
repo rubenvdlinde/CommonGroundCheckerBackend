@@ -5,6 +5,7 @@ import { toFollowFields } from "@/lib/follow";
 import { toLifecycleFields } from "@/lib/lifecycle";
 import { openDropCounts } from "@/lib/drops";
 import { buildUsageStatus } from "@/lib/usage";
+import { standardsEvidenceOf } from "@/lib/standards";
 
 function normalizeStringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -67,6 +68,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
               version: true,
               declaredUserCount: true,
               developmentStatus: true,
+              results: true,
             },
           },
           _count: {
@@ -99,7 +101,10 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
           ...openDropCounts(repository.drops ?? [], now),
           slas: buildUsageStatus(null, repository.slas ?? []).slas,
           latestAnalysis: repository.analyses[0]
-            ? toLatestAnalysis(repository.analyses[0])
+            ? {
+                ...toLatestAnalysis(repository.analyses[0]),
+                standardsEvidence: standardsEvidenceOf(repository.analyses[0].results),
+              }
             : null,
         })),
       };

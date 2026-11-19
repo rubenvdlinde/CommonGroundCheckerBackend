@@ -107,6 +107,42 @@ describe("API route tests", () => {
     });
   });
 
+  describe("GET /api/repositories", () => {
+    it("gives the evidence of the standards result with the latest analysis", async () => {
+      const evidence = ["Found in the repository, not declared: Zaken API 1.5.1 in src/openapi.yaml (by title)"];
+      mockedPrisma.repo.findMany.mockResolvedValue([
+        {
+          id: "repo-id",
+          owner: "open-zaak",
+          name: "open-zaak",
+          repoUrl: "https://github.com/open-zaak/open-zaak",
+          helmChartLocations: [],
+          dockerLocations: [],
+          apiSpecificationLocations: [],
+          documentationLocations: [],
+          updatedAt: new Date("2026-11-19T00:00:00Z"),
+          _count: { analyses: 1 },
+          slas: [],
+          drops: [],
+          analyses: [
+            {
+              checkedAt: new Date("2026-11-19T15:13:11Z"),
+              score: 70,
+              results: [{ id: "standards", status: "info", evidence }],
+            },
+          ],
+        },
+      ]);
+
+      const response = await app.inject({ method: "GET", url: "/api/repositories?limit=50" });
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.payload) as { repositories: Array<{ latestAnalysis: Record<string, unknown> }> };
+      expect(body.repositories[0].latestAnalysis.standardsEvidence).toEqual(evidence);
+      const query = mockedPrisma.repo.findMany.mock.calls[0][0] as { include: { analyses: { select: Record<string, boolean> } } };
+      expect(query.include.analyses.select.results).toBe(true);
+    });
+  });
+
   describe("POST /api/repositories", () => {
     it("creates or updates repository metadata with a valid GitHub repoUrl", async () => {
       const mockRepo = {
@@ -740,6 +776,7 @@ describe("API route tests", () => {
         version: null,
         declaredUserCount: null,
         developmentStatus: null,
+        standardsEvidence: null,
       });
       const findManyArgs = mockedPrisma.repo.findMany.mock.calls[0][0] as {
         include: { analyses: { select: Record<string, boolean> } };
