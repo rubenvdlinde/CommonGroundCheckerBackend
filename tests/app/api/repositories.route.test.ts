@@ -337,6 +337,10 @@ describe("API route tests", () => {
           rating: null,
           checklistVersion: null,
           developmentStatus: null,
+          scanMode: null,
+          scanDurationSeconds: null,
+          toolFingerprint: null,
+          inputsFingerprint: null,
           results: [],
         },
       });
@@ -427,6 +431,10 @@ describe("API route tests", () => {
           endorsement,
           checklistVersion: null,
           developmentStatus: null,
+          scanMode: null,
+          scanDurationSeconds: null,
+          toolFingerprint: null,
+          inputsFingerprint: null,
           results: [],
         },
       });
@@ -607,6 +615,84 @@ describe("API route tests", () => {
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.payload) as ErrorResponse;
       expect(body.error).toContain("Invalid checklistVersion field");
+      expect(mockedPrisma.repoAnalysis.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("the scan mode of an analysis", () => {
+    it("stores the scan mode, duration and fingerprints, and clears a requested full scan after a full one", async () => {
+      mockedPrisma.repo.findUnique.mockResolvedValue({ id: "repo-id", followed: true, checkIntervalHours: 24 });
+      mockedPrisma.repoAnalysis.create.mockResolvedValue({ id: "analysis-id" });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/repositories/repo-id/analyses",
+        payload: {
+          checkedAt: "2026-11-19T02:00:00Z",
+          score: 80,
+          results: [],
+          scanMode: "full",
+          scanDurationSeconds: 182.4,
+          toolFingerprint: "sha256:0123abcd",
+          inputsFingerprint: "sha256:4567ef01",
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const [createArgs] = mockedPrisma.repoAnalysis.create.mock.calls[0] as [{ data: Record<string, unknown> }];
+      expect(createArgs.data).toMatchObject({
+        scanMode: "full",
+        scanDurationSeconds: 182.4,
+        toolFingerprint: "sha256:0123abcd",
+        inputsFingerprint: "sha256:4567ef01",
+      });
+      const [updateArgs] = mockedPrisma.repo.update.mock.calls[0] as [{ data: Record<string, unknown> }];
+      expect(updateArgs.data.fullScanRequested).toBe(false);
+    });
+
+    it("keeps a requested full scan after a partial one, and stores null for older clients", async () => {
+      mockedPrisma.repo.findUnique.mockResolvedValue({ id: "repo-id" });
+      mockedPrisma.repoAnalysis.create.mockResolvedValue({ id: "analysis-id" });
+
+      await app.inject({
+        method: "POST",
+        url: "/api/repositories/repo-id/analyses",
+        payload: { checkedAt: "2026-11-19T02:00:00Z", score: 80, results: [], scanMode: "partial" },
+      });
+      await app.inject({
+        method: "POST",
+        url: "/api/repositories/repo-id/analyses",
+        payload: { checkedAt: "2026-11-19T02:00:00Z", score: 80, results: [] },
+      });
+
+      const [partialUpdate] = mockedPrisma.repo.update.mock.calls[0] as [{ data: Record<string, unknown> }];
+      expect(partialUpdate.data).not.toHaveProperty("fullScanRequested");
+      const [olderCreate] = mockedPrisma.repoAnalysis.create.mock.calls[1] as [{ data: Record<string, unknown> }];
+      expect(olderCreate.data).toMatchObject({
+        scanMode: null,
+        scanDurationSeconds: null,
+        toolFingerprint: null,
+        inputsFingerprint: null,
+      });
+    });
+
+    it.each([
+      ["an unknown scan mode", { scanMode: "quick" }, "Invalid scanMode field"],
+      ["a negative duration", { scanDurationSeconds: -1 }, "Invalid scanDurationSeconds field"],
+      ["a duration as text", { scanDurationSeconds: "12" }, "Invalid scanDurationSeconds field"],
+      ["a fingerprint with spaces", { toolFingerprint: "not a hash" }, "Invalid toolFingerprint"],
+      ["an inputs fingerprint that is a number", { inputsFingerprint: 12 }, "inputsFingerprint"],
+    ])("returns 400 for %s", async (_label, extra, message) => {
+      mockedPrisma.repo.findUnique.mockResolvedValue({ id: "repo-id" });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/repositories/repo-id/analyses",
+        payload: { checkedAt: "2026-11-19T02:00:00Z", score: 80, results: [], ...extra },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect((JSON.parse(response.payload) as ErrorResponse).error).toContain(message);
       expect(mockedPrisma.repoAnalysis.create).not.toHaveBeenCalled();
     });
   });

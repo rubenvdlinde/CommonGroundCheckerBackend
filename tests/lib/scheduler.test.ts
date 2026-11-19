@@ -136,6 +136,24 @@ describe("scheduler", () => {
     expect(bodies[2]).toMatchObject({ ref: "default-branch" });
   });
 
+  it("asks the checker for a full scan only when one was requested", async () => {
+    mockedPrisma.repo.findMany.mockResolvedValue([
+      dueRepo("a", { fullScanRequested: true }),
+      dueRepo("b", { fullScanRequested: false }),
+    ]);
+    const fetchFn = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    const s = scheduler(fetchFn, 2);
+
+    await s.tick();
+    await s.idle();
+
+    const bodies = fetchFn.mock.calls.map(
+      ([, init]) => JSON.parse((init as RequestInit).body as string) as Record<string, unknown>
+    );
+    expect(bodies[0]).toMatchObject({ full: true });
+    expect(bodies[1]).not.toHaveProperty("full");
+  });
+
   it("claims a repository by moving nextCheckAt forward before calling the checker", async () => {
     const repo = dueRepo("a");
     mockedPrisma.repo.findMany.mockResolvedValue([repo]);

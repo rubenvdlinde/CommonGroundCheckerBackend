@@ -559,6 +559,9 @@ components:
             - string
             - null
           description: "register only: the branch or tag scheduled scans use; empty for the released version, \"default-branch\", \"latest-release\", or a branch or tag name"
+        full:
+          type: boolean
+          description: "rescan only: run every check, also when the scanned commit did not change"
         options:
           type: object
           description: "register only: scan options stored with the repository and sent to the checker"
@@ -1206,6 +1209,21 @@ components:
       required:
         - passed
         - reasons
+    ScanMode:
+      type:
+        - string
+        - null
+      enum:
+        - full
+        - partial
+        - null
+      description: "full when every check ran; partial when the commit, checklist version and tools were unchanged, so the code checks were copied from an earlier analysis (each such result carries reusedFrom) and only the outside-world checks ran; null for older analyses"
+    Fingerprint:
+      type:
+        - string
+        - null
+      pattern: "^[0-9a-z:]{1,80}$"
+      description: "A short hash, for example sha256:0123abcd. toolFingerprint covers the checker's own version and its pinned tool versions; inputsFingerprint covers the scan settings the code checks depend on"
     ChecklistVersion:
       type:
         - string
@@ -1258,6 +1276,18 @@ components:
           $ref: "#/components/schemas/Endorsement"
         checklistVersion:
           $ref: "#/components/schemas/ChecklistVersion"
+        scanMode:
+          $ref: "#/components/schemas/ScanMode"
+        scanDurationSeconds:
+          type:
+            - number
+            - null
+          minimum: 0
+          description: "How long the scan took, in seconds"
+        toolFingerprint:
+          $ref: "#/components/schemas/Fingerprint"
+        inputsFingerprint:
+          $ref: "#/components/schemas/Fingerprint"
         results:
           type: array
           items:
@@ -1320,6 +1350,18 @@ components:
           $ref: "#/components/schemas/Endorsement"
         checklistVersion:
           $ref: "#/components/schemas/ChecklistVersion"
+        scanMode:
+          $ref: "#/components/schemas/ScanMode"
+        scanDurationSeconds:
+          type:
+            - number
+            - null
+          minimum: 0
+          description: "How long the scan took, in seconds"
+        toolFingerprint:
+          $ref: "#/components/schemas/Fingerprint"
+        inputsFingerprint:
+          $ref: "#/components/schemas/Fingerprint"
         results:
           type: array
           items:
