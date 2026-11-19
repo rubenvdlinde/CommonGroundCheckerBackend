@@ -95,6 +95,29 @@ function parseChecklistVersion(value: unknown): string | null | undefined {
   return typeof value === "string" && CHECKLIST_VERSION_PATTERN.test(value) ? value : undefined;
 }
 
+const SCAN_MODES = ["full", "partial"];
+
+/** "full" or "partial", or null; undefined when invalid. */
+export function parseScanMode(value: unknown): string | null | undefined {
+  if (value === undefined || value === null) return null;
+  return typeof value === "string" && SCAN_MODES.includes(value) ? value : undefined;
+}
+
+/** Seconds the scan took, or null; undefined when invalid. */
+export function parseScanDuration(value: unknown): number | null | undefined {
+  if (value === undefined || value === null) return null;
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+/** A fingerprint is a short lowercase hash such as "sha256:0123abcd". */
+const FINGERPRINT_PATTERN = /^[0-9a-z:]{1,80}$/;
+
+/** A tool or inputs fingerprint, or null; undefined when invalid. */
+export function parseFingerprint(value: unknown): string | null | undefined {
+  if (value === undefined || value === null) return null;
+  return typeof value === "string" && FINGERPRINT_PATTERN.test(value) ? value : undefined;
+}
+
 export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
   fastify.post(
     "/api/repositories/:repoId/analyses",
@@ -135,6 +158,10 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
         const aspectRatings = parseAspectRatings(body?.aspectRatings);
         const endorsement = parseEndorsement(body?.endorsement);
         const checklistVersion = parseChecklistVersion(body?.checklistVersion);
+        const scanMode = parseScanMode(body?.scanMode);
+        const scanDurationSeconds = parseScanDuration(body?.scanDurationSeconds);
+        const toolFingerprint = parseFingerprint(body?.toolFingerprint);
+        const inputsFingerprint = parseFingerprint(body?.inputsFingerprint);
 
         if (!checkedAt || Number.isNaN(Date.parse(checkedAt))) {
           return reply
@@ -186,6 +213,25 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
           });
         }
 
+        if (scanMode === undefined) {
+          return reply
+            .status(400)
+            .send({ error: 'Invalid scanMode field: expected "full", "partial" or null.' });
+        }
+
+        if (scanDurationSeconds === undefined) {
+          return reply.status(400).send({
+            error: "Invalid scanDurationSeconds field: expected a number of 0 or more, or null.",
+          });
+        }
+
+        if (toolFingerprint === undefined || inputsFingerprint === undefined) {
+          return reply.status(400).send({
+            error:
+              "Invalid toolFingerprint or inputsFingerprint field: expected a short lowercase hash or null.",
+          });
+        }
+
         const checkedAtDate = new Date(checkedAt);
         const analysis = await prisma.repoAnalysis.create({
           data: {
@@ -202,6 +248,10 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
             ...(aspectRatings ? { aspectRatings } : {}),
             ...(endorsement ? { endorsement } : {}),
             checklistVersion,
+            scanMode,
+            scanDurationSeconds,
+            toolFingerprint,
+            inputsFingerprint,
             results,
           },
         });
@@ -215,6 +265,7 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
               repository.checkIntervalHours,
               checkedAtDate
             ),
+            ...(scanMode === "full" ? { fullScanRequested: false } : {}),
           },
         });
 

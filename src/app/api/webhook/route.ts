@@ -160,6 +160,13 @@ export function registerWebhookRoute(fastify: FastifyInstance) {
         return reply.status(401).send({ error: "Missing or invalid repository token." });
       }
 
+      if (body.full !== undefined && typeof body.full !== "boolean") {
+        return reply.status(400).send({ error: "Invalid full field: expected true or false." });
+      }
+      if (body.full === true) {
+        await prisma.repo.update({ where: { id: repository.id }, data: { fullScanRequested: true } });
+      }
+
       const now = new Date();
       const queued = fastify.scheduler.isRunning(repository.id)
         ? { count: 0 }

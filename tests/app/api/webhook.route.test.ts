@@ -7,6 +7,7 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
       updateMany: vi.fn(),
+      update: vi.fn(),
     },
     $disconnect: vi.fn(),
   },
@@ -18,7 +19,7 @@ import { buildServer } from "@/server";
 
 type MockFn = ReturnType<typeof vi.fn>;
 const mockedPrisma = prisma as unknown as {
-  repo: { upsert: MockFn; findUnique: MockFn; findMany: MockFn; updateMany: MockFn };
+  repo: { upsert: MockFn; findUnique: MockFn; findMany: MockFn; updateMany: MockFn; update: MockFn };
 };
 
 type WebhookResponse = {
@@ -227,6 +228,42 @@ describe("POST /api/webhook", () => {
         data: { nextCheckAt: NOW },
       });
       expect(runDue).toHaveBeenCalledWith({ repoId: "repo-id" });
+    });
+
+    it("requests a full scan with full: true, and leaves the flag alone without it", async () => {
+      mockedPrisma.repo.findUnique.mockResolvedValue(storedRepo());
+
+      const { statusCode } = await post({ repoUrl: REPO_URL, action: "rescan", full: true }, REPO_TOKEN);
+      expect(statusCode).toBe(202);
+      expect(mockedPrisma.repo.update).toHaveBeenCalledWith({
+        where: { id: "repo-id" },
+        data: { fullScanRequested: true },
+      });
+      expect(runDue).toHaveBeenCalledWith({ repoId: "repo-id" });
+
+      mockedPrisma.repo.update.mockClear();
+      await post({ repoUrl: REPO_URL, action: "rescan" }, REPO_TOKEN);
+      expect(mockedPrisma.repo.update).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when full is not a boolean, before changing anything", async () => {
+      mockedPrisma.repo.findUnique.mockResolvedValue(storedRepo());
+
+      const { statusCode, body } = await post({ repoUrl: REPO_URL, action: "rescan", full: "yes" }, REPO_TOKEN);
+
+      expect(statusCode).toBe(400);
+      expect(body.error).toContain("Invalid full field");
+      expect(mockedPrisma.repo.update).not.toHaveBeenCalled();
+      expect(mockedPrisma.repo.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("does not request a full scan for a wrong token", async () => {
+      mockedPrisma.repo.findUnique.mockResolvedValue(storedRepo());
+
+      const { statusCode } = await post({ repoUrl: REPO_URL, action: "rescan", full: true }, "wrong-token");
+
+      expect(statusCode).toBe(401);
+      expect(mockedPrisma.repo.update).not.toHaveBeenCalled();
     });
 
     it("accepts the admin token", async () => {

@@ -84,6 +84,8 @@ Before a scan starts, the repository is claimed in the database by moving `nextC
 | `SCHEDULER_SCAN_TIMEOUT_SECONDS` | `900` | A scan that takes longer is aborted and retried at the next interval |
 | `SCHEDULER_NIGHTLY_HOUR` | none | A whole hour from `0` to `23`. When set, scheduled checks run at that hour in Europe/Amsterdam time once their interval is up: a daily repository every night, a weekly one on the night its week is up. A check that ran less than 6 hours before that hour is not repeated that night |
 
+A scheduled scan of an unchanged commit is partial: the checker copies the code checks from the previous analysis and runs only the checks that depend on the outside world (see the checker's README). The analysis stores `scanMode` (`full` or `partial`), `scanDurationSeconds`, `toolFingerprint` and `inputsFingerprint`. A rescan with `full: true` sets `fullScanRequested` on the repository; the next scan then sends `full: true` to the checker, and a stored full analysis clears the flag.
+
 The scheduler stops when the server closes (also on `SIGINT` and `SIGTERM`); scans still in flight are aborted and picked up again at their next interval.
 
 `POST /api/repositories` accepts an optional boolean `isRegister`, stored with the repository and passed on to scheduled rescans.
@@ -134,7 +136,7 @@ When `NOTIFY_WEBHOOK_URL` is set, every new drop is posted to it as JSON: `{ "ev
 ```
 
 - `register` needs `Authorization: Bearer <WEBHOOK_ADMIN_TOKEN>`. It follows the repository with the given interval (default weekly) and `scanRef` (default: the released version), stores `options` with it, queues an immediate rescan and returns a new **repository token**. The token is shown only in this response; the backend stores only its sha256 hash. Registering an existing repository again rotates the token. Without `WEBHOOK_ADMIN_TOKEN` registration is disabled (`503`).
-- `rescan` needs `Authorization: Bearer <repository token>` (the admin token works too). It queues an immediate rescan through the scheduler.
+- `rescan` needs `Authorization: Bearer <repository token>` (the admin token works too). It queues an immediate rescan through the scheduler. With `"full": true` that scan runs every check, also when the code did not change.
 - Both answer `202` with `repoId`, `status` (`queued` or `already queued`) and `nextCheckAt`. At most one rescan per repository is queued at a time: while one is waiting or running in this process, a further request answers `already queued`. An unknown repository gives `404`, a wrong token `401`. Tokens are compared in constant time.
 
 Queued rescans are started by the scheduler, so `SCHEDULER_ENABLED=true` and `CHECKER_URL` must be set for a queued rescan to be picked up when the concurrency limit was reached at the time of the request.

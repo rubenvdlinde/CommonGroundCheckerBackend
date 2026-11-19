@@ -24,6 +24,13 @@ model RepoAnalysis {
   aspectRatings   Json?
   endorsement     Json?
   checklistVersion String?
+  /// "full" when every check ran, "partial" when the code checks were reused
+  scanMode            String?
+  scanDurationSeconds Float?
+  /// Hash of the checker's own version and its pinned tool versions
+  toolFingerprint     String?
+  /// Hash of the scan settings the code checks depend on
+  inputsFingerprint   String?
   results   Json
   createdAt DateTime @default(now())
   drops     MaintenanceDrop[] @relation("DropAnalysis")
@@ -61,6 +68,8 @@ model Repo {
   lastCheckedAt            DateTime?
   nextCheckAt              DateTime?
   webhookTokenHash         String?
+  /// Set by a rescan with `full: true`; the next scheduled scan runs every check
+  fullScanRequested        Boolean   @default(false)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   analyses  RepoAnalysis[]
