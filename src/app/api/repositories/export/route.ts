@@ -101,6 +101,7 @@ export function registerRepositoriesExportRoute(fastify: FastifyInstance) {
             aspectRatings: true,
             endorsement: true,
             version: true,
+            checklistVersion: true,
             results: true,
           },
         },
@@ -157,6 +158,7 @@ export function registerRepositoriesExportRoute(fastify: FastifyInstance) {
       ...sortedAspects.map((aspect) => escapeCsvCell(`aspect_${aspect}`)),
       "latestPassed",
       "latestVersion",
+      "latestChecklistVersion",
       "analysisCount",
       ...resultHeaders,
       "latestResultsJson",
@@ -176,6 +178,7 @@ export function registerRepositoriesExportRoute(fastify: FastifyInstance) {
         ...sortedAspects.map((aspect) => escapeCsvCell(aspectRatings[aspect])),
         escapeCsvCell(endorsementPassed(latestAnalysis.endorsement)),
         escapeCsvCell(latestAnalysis.version ?? ""),
+        escapeCsvCell(latestAnalysis.checklistVersion ?? ""),
         escapeCsvCell(repository._count.analyses),
         ...sortedResultIds.flatMap((id) => {
           const result = resultMap.get(id);
