@@ -23,6 +23,7 @@ model RepoAnalysis {
   categoryRatings Json?
   aspectRatings   Json?
   endorsement     Json?
+  checklistVersion String?
   results   Json
   createdAt DateTime @default(now())
   drops     MaintenanceDrop[] @relation("DropAnalysis")
@@ -97,6 +98,7 @@ model MaintenanceDrop {
   analysis           RepoAnalysis  @relation("DropAnalysis", fields: [analysisId], references: [id], onDelete: Cascade)
   previousAnalysisId String
   scannedRefKind     String?
+  checklistVersion   String?
   kind               String
   subject            String
   label              String

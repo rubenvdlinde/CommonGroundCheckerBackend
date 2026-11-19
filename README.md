@@ -55,7 +55,7 @@ The API supports three types of resources:
 
 - `/api/repositories` expects JSON metadata containing `repoUrl` and optional repository fields.
 - The literal OpenAPI specification is stored in `src/app/api/openapi/openapi.yaml` and served by `/api/openapi`.
-- `/api/repositories/{repoId}/analyses` expects analysis result payloads including `checkedAt`, `score`, and `results`, and optionally `scannedRef`, `scannedRefKind` (why that ref was chosen: `declared-version`, `release`, `tag`, `branch`, `default-branch` or `default-branch-fallback`) and `scannedCommit`: the branch or tag and commit that were scanned. It also accepts the optional `rating` (0.5 to 5.5 or null), `categoryRatings` and `aspectRatings` (ratings per category and per aspect), and `endorsement` (`{ passed, reasons }`); the history, the repository list's latest analysis and the CSV export return them.
+- `/api/repositories/{repoId}/analyses` expects analysis result payloads including `checkedAt`, `score`, and `results`, and optionally `scannedRef`, `scannedRefKind` (why that ref was chosen: `declared-version`, `release`, `tag`, `branch`, `default-branch` or `default-branch-fallback`) and `scannedCommit`: the branch or tag and commit that were scanned. It also accepts the optional `rating` (0.5 to 5.5 or null), `categoryRatings` and `aspectRatings` (ratings per category and per aspect), `endorsement` (`{ passed, reasons }`) and `checklistVersion` (the checklist version the analysis was measured against, for example `2026.1`); the history, the repository list's latest analysis and the CSV export return them. Analyses stored before the checklist had versions have `checklistVersion: null`.
 - `/api/admin/scoring` exposes and persists custom scoring parameters for criterion weights, complexity thresholds, and Spectral ruleset selection.
 - `/api/repositories/{repoId}/follow` expects `{ "followed": true, "checkIntervalHours": 168 }`. The interval is `24` (daily), `168` (weekly) or `720` (monthly); when omitted, the stored interval is kept, or weekly is used when following for the first time. An optional `scanRef` chooses what scheduled scans read: empty or `null` lets the checker scan the released version (the tag of the publiccode.yml `softwareVersion`, else the newest stable release or semver tag, else the default branch with a warning), `default-branch` the default branch, `latest-release` the newest stable release, or a branch or tag name such as `development`; when omitted, the stored value is kept.
 
@@ -90,13 +90,13 @@ The scheduler stops when the server closes (also on `SIGINT` and `SIGTERM`); sca
 
 ### Drops and fix terms
 
-After an analysis is stored, it is compared with the previous analysis of the same repository and the same scanned ref kind (`scannedRefKind`). A drop is recorded when:
+After an analysis is stored, it is compared with the previous analysis of the same repository, the same scanned ref kind (`scannedRefKind`) and the same checklist version (`checklistVersion`). A new checklist version, or an analysis without one, starts a new baseline: a change of the checker itself is never a drop. A drop is recorded when:
 
 - a criterion goes from `pass` to `fail` (informative criteria are left out)
 - the overall rating or a category rating loses a whole star
 - the verdict "suitable for Common Ground" (`endorsement.passed`) is lost
 
-Each drop gets a fix-by date: the moment it was detected (the analysis's `checkedAt`) plus the fix term in days. A drop is open until a later analysis of the same ref kind recovers it: the criterion passes, the rating has its stars back, or the verdict is suitable again. An open drop past its fix-by date is `overdue`. A subject with an open drop gets no second drop.
+Each drop gets a fix-by date: the moment it was detected (the analysis's `checkedAt`) plus the fix term in days. A drop is open until a later analysis of the same ref kind recovers it, also under a newer checklist version: the criterion passes, the rating has its stars back, or the verdict is suitable again. An open drop past its fix-by date is `overdue`. A subject with an open drop gets no second drop.
 
 The fix terms are part of the scoring configuration (`fixTerms` in `/api/admin/scoring`). The defaults are proposals, until a governance decision sets the real terms:
 

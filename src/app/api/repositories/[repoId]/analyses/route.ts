@@ -86,6 +86,15 @@ function parseEndorsement(
   return { passed, reasons };
 }
 
+/** A checklist version is a short label such as "2026.1". */
+const CHECKLIST_VERSION_PATTERN = /^[0-9A-Za-z][0-9A-Za-z.\-]{0,31}$/;
+
+/** The checklist version an analysis was measured against, or null; undefined when invalid. */
+function parseChecklistVersion(value: unknown): string | null | undefined {
+  if (value === undefined || value === null) return null;
+  return typeof value === "string" && CHECKLIST_VERSION_PATTERN.test(value) ? value : undefined;
+}
+
 export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
   fastify.post(
     "/api/repositories/:repoId/analyses",
@@ -125,6 +134,7 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
         const categoryRatings = parseCategoryRatings(body?.categoryRatings);
         const aspectRatings = parseAspectRatings(body?.aspectRatings);
         const endorsement = parseEndorsement(body?.endorsement);
+        const checklistVersion = parseChecklistVersion(body?.checklistVersion);
 
         if (!checkedAt || Number.isNaN(Date.parse(checkedAt))) {
           return reply
@@ -170,6 +180,12 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
           });
         }
 
+        if (checklistVersion === undefined) {
+          return reply.status(400).send({
+            error: "Invalid checklistVersion field: expected a version such as 2026.1 or null.",
+          });
+        }
+
         const checkedAtDate = new Date(checkedAt);
         const analysis = await prisma.repoAnalysis.create({
           data: {
@@ -185,6 +201,7 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
             ...(categoryRatings ? { categoryRatings } : {}),
             ...(aspectRatings ? { aspectRatings } : {}),
             ...(endorsement ? { endorsement } : {}),
+            checklistVersion,
             results,
           },
         });
@@ -209,6 +226,7 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
               repoId,
               checkedAt: checkedAtDate,
               scannedRefKind,
+              checklistVersion,
               results,
               rating,
               categoryRatings,

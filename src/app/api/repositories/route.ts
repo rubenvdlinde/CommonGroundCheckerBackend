@@ -16,6 +16,7 @@ interface LatestAnalysisRecord {
   categoryRatings: unknown;
   aspectRatings: unknown;
   endorsement: unknown;
+  checklistVersion: string | null;
 }
 
 function toLatestAnalysis(analysis: LatestAnalysisRecord) {
@@ -26,6 +27,7 @@ function toLatestAnalysis(analysis: LatestAnalysisRecord) {
     categoryRatings: analysis.categoryRatings ?? null,
     aspectRatings: analysis.aspectRatings ?? null,
     endorsement: analysis.endorsement ?? null,
+    checklistVersion: analysis.checklistVersion ?? null,
   };
 }
 
@@ -60,6 +62,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
               categoryRatings: true,
               aspectRatings: true,
               endorsement: true,
+              checklistVersion: true,
             },
           },
           _count: {
@@ -208,6 +211,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
               categoryRatings: true,
               aspectRatings: true,
               endorsement: true,
+              checklistVersion: true,
             },
           },
         },

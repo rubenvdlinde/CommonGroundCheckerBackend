@@ -181,6 +181,7 @@ describe("POST /api/repositories/{repoId}/analyses", () => {
     checkedAt: "2026-11-19T02:00:00Z",
     score: 70,
     scannedRefKind: "release",
+    checklistVersion: "2026.1",
     rating: 3.4,
     categoryRatings: { Maintainability: 3.4 },
     endorsement: { passed: false, reasons: ["Maintainability below 4 stars"] },
@@ -188,6 +189,7 @@ describe("POST /api/repositories/{repoId}/analyses", () => {
   };
   const previous = {
     id: "a1",
+    checklistVersion: "2026.1",
     results: [{ id: "license", title: "License", status: "pass", requirementLevel: "mandatory" }],
     rating: 4.1,
     categoryRatings: { Maintainability: 4.1 },
@@ -256,6 +258,15 @@ describe("POST /api/repositories/{repoId}/analyses", () => {
         fixBy: new Date("2026-11-26T02:00:00Z"),
       }) as unknown,
     });
+  });
+
+  it("records no drops against an analysis of another checklist version", async () => {
+    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({ ...previous, checklistVersion: "2025.4" });
+
+    const response = await app.inject({ method: "POST", url: "/api/repositories/repo-id/analyses", payload });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockedPrisma.maintenanceDrop.create).not.toHaveBeenCalled();
   });
 
   it("still stores the analysis when drop detection fails", async () => {

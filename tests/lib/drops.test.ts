@@ -175,7 +175,14 @@ describe("toDropResponse", () => {
 
 describe("recordAnalysisDrops", () => {
   const checkedAt = new Date("2026-11-19T02:00:00Z");
-  const analysis = { id: "a2", repoId: "repo-id", checkedAt, scannedRefKind: "release", ...snapshot() };
+  const analysis = {
+    id: "a2",
+    repoId: "repo-id",
+    checkedAt,
+    scannedRefKind: "release",
+    checklistVersion: "2026.1",
+    ...snapshot(),
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -189,7 +196,7 @@ describe("recordAnalysisDrops", () => {
   });
 
   it("compares with the previous analysis of the same repository and scanned ref kind", async () => {
-    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({ id: "a1", ...snapshot() });
+    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({ id: "a1", checklistVersion: "2026.1", ...snapshot() });
 
     await recordAnalysisDrops(analysis, DEFAULT_FIX_TERMS);
 
@@ -203,7 +210,7 @@ describe("recordAnalysisDrops", () => {
   });
 
   it("stores each new drop with its fix term and fix-by date", async () => {
-    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({ id: "a1", ...snapshot() });
+    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({ id: "a1", checklistVersion: "2026.1", ...snapshot() });
     const current = { ...analysis, results: [result("license", "fail")], categoryRatings: { Maintainability: 2.9 } };
 
     const created = await recordAnalysisDrops(current, DEFAULT_FIX_TERMS);
@@ -215,6 +222,7 @@ describe("recordAnalysisDrops", () => {
         analysisId: "a2",
         previousAnalysisId: "a1",
         scannedRefKind: "release",
+        checklistVersion: "2026.1",
         kind: "criterion",
         subject: "license",
         label: "license title",
@@ -239,7 +247,11 @@ describe("recordAnalysisDrops", () => {
 
   it("resolves an open drop that this analysis recovers", async () => {
     mockedPrisma.maintenanceDrop.findMany.mockResolvedValue([storedDrop()]);
-    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({ id: "a1", ...snapshot({ results: [result("license", "fail")] }) });
+    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({
+      id: "a1",
+      checklistVersion: "2026.1",
+      ...snapshot({ results: [result("license", "fail")] }),
+    });
 
     const created = await recordAnalysisDrops(analysis, DEFAULT_FIX_TERMS);
 
@@ -252,7 +264,7 @@ describe("recordAnalysisDrops", () => {
 
   it("keeps a drop open while it is not recovered and adds no second drop for it", async () => {
     mockedPrisma.maintenanceDrop.findMany.mockResolvedValue([storedDrop()]);
-    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({ id: "a1", ...snapshot() });
+    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({ id: "a1", checklistVersion: "2026.1", ...snapshot() });
     const current = { ...analysis, results: [result("license", "fail")] };
 
     const created = await recordAnalysisDrops(current, DEFAULT_FIX_TERMS);
@@ -269,6 +281,37 @@ describe("recordAnalysisDrops", () => {
     await recordAnalysisDrops(analysis, DEFAULT_FIX_TERMS);
 
     expect(mockedPrisma.maintenanceDrop.update).not.toHaveBeenCalled();
+  });
+
+  it("starts a new baseline when the checklist version changed, so a checker change is no drop", async () => {
+    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({ id: "a1", checklistVersion: "2025.4", ...snapshot() });
+    const current = { ...analysis, results: [result("license", "fail")] };
+
+    expect(await recordAnalysisDrops(current, DEFAULT_FIX_TERMS)).toEqual([]);
+    expect(mockedPrisma.maintenanceDrop.create).not.toHaveBeenCalled();
+  });
+
+  it("starts a new baseline after an analysis without a checklist version, and records nothing without one", async () => {
+    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({ id: "a1", checklistVersion: null, ...snapshot() });
+    const current = { ...analysis, results: [result("license", "fail")] };
+    expect(await recordAnalysisDrops(current, DEFAULT_FIX_TERMS)).toEqual([]);
+
+    mockedPrisma.repoAnalysis.findFirst.mockClear();
+    expect(await recordAnalysisDrops({ ...current, checklistVersion: null }, DEFAULT_FIX_TERMS)).toEqual([]);
+    expect(mockedPrisma.repoAnalysis.findFirst).not.toHaveBeenCalled();
+    expect(mockedPrisma.maintenanceDrop.create).not.toHaveBeenCalled();
+  });
+
+  it("still resolves an open drop from an earlier checklist version", async () => {
+    mockedPrisma.maintenanceDrop.findMany.mockResolvedValue([storedDrop({ checklistVersion: "2025.4" })]);
+    mockedPrisma.repoAnalysis.findFirst.mockResolvedValue({ id: "a1", checklistVersion: "2025.4", ...snapshot() });
+
+    await recordAnalysisDrops(analysis, DEFAULT_FIX_TERMS);
+
+    expect(mockedPrisma.maintenanceDrop.update).toHaveBeenCalledWith({
+      where: { id: "drop-1" },
+      data: { resolvedAt: checkedAt, resolvedAnalysisId: "a2" },
+    });
   });
 
   it("records nothing for the first analysis of a ref kind", async () => {

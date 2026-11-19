@@ -166,6 +166,7 @@ export interface MaintenanceDropRow {
   analysisId: string;
   previousAnalysisId: string;
   scannedRefKind: string | null;
+  checklistVersion?: string | null;
   kind: string;
   subject: string;
   label: string;
@@ -186,6 +187,7 @@ export function toDropResponse(drop: MaintenanceDropRow, now: Date = new Date())
     analysisId: drop.analysisId,
     previousAnalysisId: drop.previousAnalysisId,
     scannedRefKind: drop.scannedRefKind,
+    checklistVersion: drop.checklistVersion ?? null,
     kind: drop.kind,
     subject: drop.subject,
     label: drop.label,
@@ -222,13 +224,17 @@ export interface StoredAnalysis extends AnalysisSnapshot {
   repoId: string;
   checkedAt: Date;
   scannedRefKind: string | null;
+  checklistVersion: string | null;
 }
 
 /**
  * Compares a just stored analysis with the previous analysis of the same
- * repository and scanned ref kind. Open drops that this analysis recovers
- * are resolved; new drops are stored with their fix-by date. A subject
- * that already has an open drop gets no second one. Returns the new drops.
+ * repository, scanned ref kind and checklist version. A new checklist
+ * version, or an analysis without one, starts a new baseline, so a change
+ * of the checker itself is never a drop. Open drops of the same ref kind
+ * that this analysis recovers are resolved, also across checklist
+ * versions; new drops are stored with their fix-by date. A subject that
+ * already has an open drop gets no second one. Returns the new drops.
  */
 export async function recordAnalysisDrops(
   analysis: StoredAnalysis,
@@ -252,11 +258,12 @@ export async function recordAnalysisDrops(
     }
   }
 
+  if (analysis.checklistVersion === null) return [];
   const previous = (await prisma.repoAnalysis.findFirst({
     where: { ...scope, id: { not: analysis.id }, checkedAt: { lt: analysis.checkedAt } },
     orderBy: { checkedAt: "desc" },
-  })) as (AnalysisSnapshot & { id: string }) | null;
-  if (!previous) return [];
+  })) as (AnalysisSnapshot & { id: string; checklistVersion: string | null }) | null;
+  if (!previous || previous.checklistVersion !== analysis.checklistVersion) return [];
 
   const created: MaintenanceDropRow[] = [];
   for (const drop of detectDrops(previous, analysis)) {
@@ -269,6 +276,7 @@ export async function recordAnalysisDrops(
           analysisId: analysis.id,
           previousAnalysisId: previous.id,
           scannedRefKind: analysis.scannedRefKind,
+          checklistVersion: analysis.checklistVersion,
           kind: drop.kind,
           subject: drop.subject,
           label: drop.label,

@@ -75,6 +75,7 @@ type AnalysisResponse = {
   categoryRatings?: Record<string, number | null> | null;
   aspectRatings?: Record<string, { rating: number | null; found?: number; expected?: number }> | null;
   endorsement?: { passed: boolean; reasons: string[] } | null;
+  checklistVersion?: string | null;
   results: unknown[];
   createdAt: string;
 };
@@ -149,6 +150,7 @@ describe("API route tests", () => {
         categoryRatings: null,
         aspectRatings: null,
         endorsement: null,
+        checklistVersion: null,
       });
     });
 
@@ -194,6 +196,7 @@ describe("API route tests", () => {
         categoryRatings: null,
         aspectRatings: null,
         endorsement: null,
+        checklistVersion: null,
       });
     });
 
@@ -326,6 +329,7 @@ describe("API route tests", () => {
           scannedCommit: null,
           score: 80,
           rating: null,
+          checklistVersion: null,
           results: [],
         },
       });
@@ -396,6 +400,7 @@ describe("API route tests", () => {
           categoryRatings,
           aspectRatings,
           endorsement,
+          checklistVersion: null,
           results: [],
         },
       });
@@ -527,6 +532,59 @@ describe("API route tests", () => {
     });
   });
 
+  describe("the checklist version of an analysis", () => {
+    it("stores the checklist version the analysis was measured against", async () => {
+      mockedPrisma.repo.findUnique.mockResolvedValue({ id: "repo-id" });
+      mockedPrisma.repoAnalysis.create.mockResolvedValue({ id: "analysis-id", checklistVersion: "2026.1" });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/repositories/repo-id/analyses",
+        payload: { checkedAt: "2026-05-06T00:00:00Z", score: 80, checklistVersion: "2026.1", results: [] },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const [createArgs] = mockedPrisma.repoAnalysis.create.mock.calls[0] as [{ data: Record<string, unknown> }];
+      expect(createArgs.data.checklistVersion).toBe("2026.1");
+      expect((JSON.parse(response.payload) as AnalysisResponse).checklistVersion).toBe("2026.1");
+    });
+
+    it("stores null when an older client sends no checklist version", async () => {
+      mockedPrisma.repo.findUnique.mockResolvedValue({ id: "repo-id" });
+      mockedPrisma.repoAnalysis.create.mockResolvedValue({ id: "analysis-id" });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/repositories/repo-id/analyses",
+        payload: { checkedAt: "2026-05-06T00:00:00Z", score: 80, checklistVersion: null, results: [] },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const [createArgs] = mockedPrisma.repoAnalysis.create.mock.calls[0] as [{ data: Record<string, unknown> }];
+      expect(createArgs.data.checklistVersion).toBeNull();
+    });
+
+    it.each([
+      ["a number", 2026.1],
+      ["an empty string", ""],
+      ["text with spaces", "version 1"],
+      ["longer than 32 characters", "2026.".padEnd(33, "1")],
+    ])("returns 400 when checklistVersion is %s", async (_label, checklistVersion) => {
+      mockedPrisma.repo.findUnique.mockResolvedValue({ id: "repo-id" });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/repositories/repo-id/analyses",
+        payload: { checkedAt: "2026-05-06T00:00:00Z", score: 80, checklistVersion, results: [] },
+      });
+
+      expect(response.statusCode).toBe(400);
+      const body = JSON.parse(response.payload) as ErrorResponse;
+      expect(body.error).toContain("Invalid checklistVersion field");
+      expect(mockedPrisma.repoAnalysis.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe("ratings in the read routes", () => {
     const analysis = {
       checkedAt: new Date("2026-05-06T00:00:00Z"),
@@ -535,6 +593,7 @@ describe("API route tests", () => {
       categoryRatings: { Governance: 4.2, Security: null },
       aspectRatings: { licensing: { rating: 4.2 }, containerisation: { rating: 3, found: 2, expected: 3 } },
       endorsement: { passed: true, reasons: [] },
+      checklistVersion: "2026.1",
     };
 
     it("returns the latest analysis rating in the repository list", async () => {
@@ -565,6 +624,7 @@ describe("API route tests", () => {
         categoryRatings: { Governance: 4.2, Security: null },
         aspectRatings: { licensing: { rating: 4.2 }, containerisation: { rating: 3, found: 2, expected: 3 } },
         endorsement: { passed: true, reasons: [] },
+        checklistVersion: "2026.1",
       });
       const findManyArgs = mockedPrisma.repo.findMany.mock.calls[0][0] as {
         include: { analyses: { select: Record<string, boolean> } };
@@ -574,6 +634,7 @@ describe("API route tests", () => {
         categoryRatings: true,
         aspectRatings: true,
         endorsement: true,
+        checklistVersion: true,
       });
     });
 
@@ -609,6 +670,7 @@ describe("API route tests", () => {
       expect(body.analyses[0].categoryRatings).toEqual({ Governance: 4.2, Security: null });
       expect(body.analyses[0].aspectRatings).toEqual(analysis.aspectRatings);
       expect(body.analyses[0].endorsement).toEqual({ passed: true, reasons: [] });
+      expect(body.analyses[0].checklistVersion).toBe("2026.1");
     });
 
     it("exports the latest rating and the rating per category as CSV columns", async () => {
@@ -633,6 +695,7 @@ describe("API route tests", () => {
               categoryRatings: null,
               aspectRatings: null,
               endorsement: null,
+              checklistVersion: null,
               version: null,
               results: [],
             },
@@ -645,13 +708,13 @@ describe("API route tests", () => {
       expect(response.statusCode).toBe(200);
       const [header, firstRow, secondRow] = response.payload.split("\r\n");
       expect(header).toBe(
-        "owner,name,repoUrl,latestCheckedAt,latestScore,latestRating,rating_Governance,rating_Security,aspect_containerisation,aspect_licensing,latestPassed,latestVersion,analysisCount,latestResultsJson"
+        "owner,name,repoUrl,latestCheckedAt,latestScore,latestRating,rating_Governance,rating_Security,aspect_containerisation,aspect_licensing,latestPassed,latestVersion,latestChecklistVersion,analysisCount,latestResultsJson"
       );
       expect(firstRow).toBe(
-        "example,repo,https://github.com/example/repo,2026-05-06T00:00:00.000Z,70,3.4,4.2,,3,4.2,true,1.0.0,2,[]"
+        "example,repo,https://github.com/example/repo,2026-05-06T00:00:00.000Z,70,3.4,4.2,,3,4.2,true,1.0.0,2026.1,2,[]"
       );
       expect(secondRow).toBe(
-        "example,older,https://github.com/example/older,2026-05-01T00:00:00.000Z,50,,,,,,,,1,[]"
+        "example,older,https://github.com/example/older,2026-05-01T00:00:00.000Z,50,,,,,,,,,1,[]"
       );
     });
   });

@@ -558,6 +558,8 @@ components:
               $ref: "#/components/schemas/AspectRatings"
             endorsement:
               $ref: "#/components/schemas/Endorsement"
+            checklistVersion:
+              $ref: "#/components/schemas/ChecklistVersion"
       required:
         - id
         - owner
@@ -702,6 +704,12 @@ components:
       required:
         - passed
         - reasons
+    ChecklistVersion:
+      type:
+        - string
+        - null
+      pattern: "^[0-9A-Za-z][0-9A-Za-z.\\-]{0,31}$"
+      description: "The checklist version the analysis was measured against, for example 2026.1; null for older analyses"
     RepoAnalysisInput:
       type: object
       properties:
@@ -741,6 +749,8 @@ components:
           $ref: "#/components/schemas/AspectRatings"
         endorsement:
           $ref: "#/components/schemas/Endorsement"
+        checklistVersion:
+          $ref: "#/components/schemas/ChecklistVersion"
         results:
           type: array
           items:
@@ -792,6 +802,8 @@ components:
           $ref: "#/components/schemas/AspectRatings"
         endorsement:
           $ref: "#/components/schemas/Endorsement"
+        checklistVersion:
+          $ref: "#/components/schemas/ChecklistVersion"
         results:
           type: array
           items:
@@ -974,6 +986,11 @@ components:
           type:
             - string
             - null
+        checklistVersion:
+          type:
+            - string
+            - null
+          description: "The checklist version both compared analyses were measured against"
         kind:
           type: string
           enum:
