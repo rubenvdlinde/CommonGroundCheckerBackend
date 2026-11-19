@@ -1022,6 +1022,11 @@ components:
             - string
             - null
           description: "Why an admin retired the repository"
+        slas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sla"
+          description: "Every SLA of the repository, the one that ends last first"
         latestAnalysis:
           type:
             - object
@@ -1042,6 +1047,21 @@ components:
               $ref: "#/components/schemas/Endorsement"
             checklistVersion:
               $ref: "#/components/schemas/ChecklistVersion"
+            version:
+              type:
+                - string
+                - null
+              description: "The version the analysis measured"
+            declaredUserCount:
+              type:
+                - integer
+                - null
+              description: "Organisations under usedBy in the scanned publiccode.yml; null when the analysis did not record them"
+            developmentStatus:
+              type:
+                - string
+                - null
+              description: "developmentStatus of the scanned publiccode.yml; null when the file or the field is missing"
       required:
         - id
         - owner

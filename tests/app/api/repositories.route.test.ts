@@ -151,6 +151,9 @@ describe("API route tests", () => {
         aspectRatings: null,
         endorsement: null,
         checklistVersion: null,
+        version: null,
+        declaredUserCount: null,
+        developmentStatus: null,
       });
     });
 
@@ -197,6 +200,9 @@ describe("API route tests", () => {
         aspectRatings: null,
         endorsement: null,
         checklistVersion: null,
+        version: null,
+        declaredUserCount: null,
+        developmentStatus: null,
       });
     });
 
@@ -330,6 +336,7 @@ describe("API route tests", () => {
           score: 80,
           rating: null,
           checklistVersion: null,
+          developmentStatus: null,
           results: [],
         },
       });
@@ -346,6 +353,24 @@ describe("API route tests", () => {
         results: [],
         createdAt: "2026-05-06T00:00:00.000Z",
       });
+    });
+
+    it("stores the development status of the scanned publiccode.yml", async () => {
+      mockedPrisma.repo.findUnique.mockResolvedValue({ id: "repo-id" });
+      mockedPrisma.repoAnalysis.create.mockResolvedValue({ id: "analysis-id" });
+
+      await app.inject({
+        method: "POST",
+        url: "/api/repositories/repo-id/analyses",
+        payload: {
+          checkedAt: "2026-05-06T00:00:00Z",
+          score: 80,
+          results: [{ id: "publiccode", publiccode: { developmentStatus: "obsolete" } }],
+        },
+      });
+
+      const created = mockedPrisma.repoAnalysis.create.mock.calls[0][0] as { data: Record<string, unknown> };
+      expect(created.data.developmentStatus).toBe("obsolete");
     });
 
     it("stores the overall rating and the rating per category", async () => {
@@ -401,6 +426,7 @@ describe("API route tests", () => {
           aspectRatings,
           endorsement,
           checklistVersion: null,
+          developmentStatus: null,
           results: [],
         },
       });
@@ -625,6 +651,9 @@ describe("API route tests", () => {
         aspectRatings: { licensing: { rating: 4.2 }, containerisation: { rating: 3, found: 2, expected: 3 } },
         endorsement: { passed: true, reasons: [] },
         checklistVersion: "2026.1",
+        version: null,
+        declaredUserCount: null,
+        developmentStatus: null,
       });
       const findManyArgs = mockedPrisma.repo.findMany.mock.calls[0][0] as {
         include: { analyses: { select: Record<string, boolean> } };
@@ -638,7 +667,7 @@ describe("API route tests", () => {
       });
     });
 
-    it("returns whether a repository is retired, and its open drops, in the repository list", async () => {
+    it("returns the retirement, open drops, SLAs and latest version, users and development status in the repository list", async () => {
       mockedPrisma.repo.findMany.mockResolvedValue([
         {
           id: "repo-id",
@@ -652,8 +681,31 @@ describe("API route tests", () => {
           updatedAt: new Date("2026-05-06T00:00:00Z"),
           retiredAt: new Date("2026-11-19T09:00:00Z"),
           retiredReason: "Replaced by a newer component",
-          _count: { analyses: 0 },
-          analyses: [],
+          _count: { analyses: 1 },
+          analyses: [
+            {
+              checkedAt: new Date("2026-11-19T08:00:00Z"),
+              score: 80,
+              rating: 4.1,
+              categoryRatings: null,
+              aspectRatings: null,
+              endorsement: { passed: true, reasons: [] },
+              checklistVersion: "2026.1",
+              version: "1.31.0",
+              declaredUserCount: 3,
+              developmentStatus: "stable",
+            },
+          ],
+          slas: [
+            {
+              id: "sla-id",
+              party: "Gemeente Utrecht",
+              maintainer: "Maykin",
+              startsOn: new Date("2026-01-01T00:00:00Z"),
+              until: new Date("2027-12-31T00:00:00Z"),
+              link: null,
+            },
+          ],
           drops: [{ fixBy: new Date("2099-01-10T00:00:00Z") }, { fixBy: new Date("2099-01-03T00:00:00Z") }],
         },
       ]);
@@ -667,6 +719,10 @@ describe("API route tests", () => {
         openDropCount: 2,
         overdueDropCount: 0,
         nextFixBy: "2099-01-03T00:00:00.000Z",
+        slas: [
+          { id: "sla-id", party: "Gemeente Utrecht", maintainer: "Maykin", startsOn: "2026-01-01", until: "2027-12-31", link: null },
+        ],
+        latestAnalysis: { version: "1.31.0", declaredUserCount: 3, developmentStatus: "stable" },
       });
     });
 

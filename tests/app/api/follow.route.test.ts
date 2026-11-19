@@ -371,6 +371,24 @@ describe("storing an analysis", () => {
     });
   });
 
+  it("records the check time of a retired repository without scheduling the next check", async () => {
+    mockedPrisma.repo.findUnique.mockResolvedValue(
+      storedRepo({ followed: true, checkIntervalHours: 168, retiredAt: new Date("2026-11-01T00:00:00Z") })
+    );
+    mockedPrisma.repoAnalysis.create.mockResolvedValue({ id: "analysis-id" });
+
+    await app.inject({
+      method: "POST",
+      url: "/api/repositories/repo-id/analyses",
+      payload: { checkedAt: "2026-11-10T08:00:00Z", score: 80, results: [] },
+    });
+
+    expect(mockedPrisma.repo.update).toHaveBeenCalledWith({
+      where: { id: "repo-id" },
+      data: { lastCheckedAt: new Date("2026-11-10T08:00:00Z"), nextCheckAt: null },
+    });
+  });
+
   it("stores the scanned ref, its kind and the commit", async () => {
     mockedPrisma.repo.findUnique.mockResolvedValue(storedRepo());
     mockedPrisma.repoAnalysis.create.mockResolvedValue({ id: "analysis-id" });

@@ -26,6 +26,7 @@ model RepoAnalysis {
   aspectRatings   Json?
   endorsement     Json?
   checklistVersion String?
+  developmentStatus String?
   results   Json
   createdAt DateTime @default(now())
   drops     MaintenanceDrop[] @relation("DropAnalysis")

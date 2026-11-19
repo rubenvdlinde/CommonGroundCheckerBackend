@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "@/lib/db";
 import { computeNextCheckAt } from "@/lib/follow";
 import { declaredOrganisations } from "@/lib/usage";
+import { developmentStatusFromResults } from "@/lib/lifecycle";
 import { recordAnalysisDrops, toDropResponse } from "@/lib/drops";
 import { notifyDrops } from "@/lib/notify";
 import { getScoringConfig } from "@/lib/scoring";
@@ -209,6 +210,7 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
             ...(aspectRatings ? { aspectRatings } : {}),
             ...(endorsement ? { endorsement } : {}),
             checklistVersion,
+            developmentStatus: developmentStatusFromResults(results),
             results,
           },
         });

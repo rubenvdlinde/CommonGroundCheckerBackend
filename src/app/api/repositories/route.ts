@@ -4,6 +4,7 @@ import { parseRepositoryUrl } from "@/lib/repo";
 import { toFollowFields } from "@/lib/follow";
 import { toLifecycleFields } from "@/lib/lifecycle";
 import { openDropCounts } from "@/lib/drops";
+import { buildUsageStatus } from "@/lib/usage";
 
 function normalizeStringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -19,6 +20,9 @@ interface LatestAnalysisRecord {
   aspectRatings: unknown;
   endorsement: unknown;
   checklistVersion: string | null;
+  version?: string | null;
+  declaredUserCount?: number | null;
+  developmentStatus?: string | null;
 }
 
 function toLatestAnalysis(analysis: LatestAnalysisRecord) {
@@ -30,6 +34,9 @@ function toLatestAnalysis(analysis: LatestAnalysisRecord) {
     aspectRatings: analysis.aspectRatings ?? null,
     endorsement: analysis.endorsement ?? null,
     checklistVersion: analysis.checklistVersion ?? null,
+    version: analysis.version ?? null,
+    declaredUserCount: analysis.declaredUserCount ?? null,
+    developmentStatus: analysis.developmentStatus ?? null,
   };
 }
 
@@ -57,11 +64,15 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
               aspectRatings: true,
               endorsement: true,
               checklistVersion: true,
+              version: true,
+              declaredUserCount: true,
+              developmentStatus: true,
             },
           },
           _count: {
             select: { analyses: true },
           },
+          slas: true,
           drops: {
             where: { resolvedAt: null },
             select: { fixBy: true },
@@ -86,6 +97,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
           ...toLifecycleFields(repository),
           analysisCount: repository._count.analyses,
           ...openDropCounts(repository.drops ?? [], now),
+          slas: buildUsageStatus(null, repository.slas ?? []).slas,
           latestAnalysis: repository.analyses[0]
             ? toLatestAnalysis(repository.analyses[0])
             : null,
