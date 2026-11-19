@@ -63,6 +63,8 @@ model Repo {
   lastCheckedAt            DateTime?
   nextCheckAt              DateTime?
   webhookTokenHash         String?
+  retiredAt                DateTime?
+  retiredReason            String?
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   analyses  RepoAnalysis[]

@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { prisma } from "@/lib/db";
 import { toFollowFields } from "@/lib/follow";
+import { toLifecycleFields } from "@/lib/lifecycle";
 import { listRepositoryDrops } from "@/lib/drops";
 
 type RepoHistoryRepository = {
@@ -22,6 +23,8 @@ type RepoHistoryRepository = {
   checkIntervalHours: number | null;
   lastCheckedAt: Date | null;
   nextCheckAt: Date | null;
+  retiredAt?: Date | null;
+  retiredReason?: string | null;
   createdAt: string;
   updatedAt: string;
   analyses: Array<{
@@ -103,6 +106,7 @@ export function registerRepoHistoryRoute(fastify: FastifyInstance) {
           name: repository.name,
           metadata: repoMeta,
           ...toFollowFields(repository),
+          ...toLifecycleFields(repository),
           createdAt: repository.createdAt,
           updatedAt: repository.updatedAt,
         },

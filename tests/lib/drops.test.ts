@@ -12,6 +12,7 @@ import {
   detectDrops,
   fixTermDays,
   isRecovered,
+  openDropCounts,
   ratingStars,
   recordAnalysisDrops,
   toDropResponse,
@@ -319,5 +320,22 @@ describe("recordAnalysisDrops", () => {
 
     expect(await recordAnalysisDrops(analysis, DEFAULT_FIX_TERMS)).toEqual([]);
     expect(mockedPrisma.maintenanceDrop.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("openDropCounts", () => {
+  const now = new Date("2026-11-19T12:00:00Z").getTime();
+
+  it("counts open and overdue drops and gives the earliest fix-by date", () => {
+    expect(
+      openDropCounts(
+        [{ fixBy: new Date("2026-11-25T00:00:00Z") }, { fixBy: new Date("2026-11-18T00:00:00Z") }],
+        now
+      )
+    ).toEqual({ openDropCount: 2, overdueDropCount: 1, nextFixBy: new Date("2026-11-18T00:00:00Z") });
+  });
+
+  it("gives no fix-by date without open drops", () => {
+    expect(openDropCounts([], now)).toEqual({ openDropCount: 0, overdueDropCount: 0, nextFixBy: null });
   });
 });

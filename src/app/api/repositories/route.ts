@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "@/lib/db";
 import { parseRepositoryUrl } from "@/lib/repo";
 import { toFollowFields } from "@/lib/follow";
+import { toLifecycleFields } from "@/lib/lifecycle";
+import { openDropCounts } from "@/lib/drops";
 
 function normalizeStringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -28,14 +30,6 @@ function toLatestAnalysis(analysis: LatestAnalysisRecord) {
     aspectRatings: analysis.aspectRatings ?? null,
     endorsement: analysis.endorsement ?? null,
     checklistVersion: analysis.checklistVersion ?? null,
-  };
-}
-
-/** How many drops are open, and how many of those are past their fix-by date. */
-function openDropCounts(drops: Array<{ fixBy: Date }>, now: number) {
-  return {
-    openDropCount: drops.length,
-    overdueDropCount: drops.filter((drop) => drop.fixBy.getTime() < now).length,
   };
 }
 
@@ -89,6 +83,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
           isRegister: repository.isRegister,
           updatedAt: repository.updatedAt,
           ...toFollowFields(repository),
+          ...toLifecycleFields(repository),
           analysisCount: repository._count.analyses,
           ...openDropCounts(repository.drops ?? [], now),
           latestAnalysis: repository.analyses[0]
@@ -229,6 +224,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
         isRegister: repoRecord.isRegister,
         updatedAt: repoRecord.updatedAt,
         ...toFollowFields(repoRecord),
+        ...toLifecycleFields(repoRecord),
         analysisCount: repoRecord._count.analyses,
         latestAnalysis: repoRecord.analyses[0]
           ? toLatestAnalysis(repoRecord.analyses[0])

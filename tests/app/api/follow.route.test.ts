@@ -120,6 +120,15 @@ describe("PUT /api/repositories/{repoId}/follow", () => {
     });
   });
 
+  it("does not schedule a retired repository when it is followed", async () => {
+    mockedPrisma.repo.findUnique.mockResolvedValue(storedRepo({ retiredAt: new Date("2026-10-01T08:00:00Z") }));
+
+    const response = await putFollow({ followed: true, checkIntervalHours: 24 });
+
+    expect(response.statusCode).toBe(200);
+    expect(updateData()).toMatchObject({ followed: true, nextCheckAt: null });
+  });
+
   it("stores a label map for the SLA times, lower case", async () => {
     mockedPrisma.repo.findUnique.mockResolvedValue(storedRepo());
 

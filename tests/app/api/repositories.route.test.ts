@@ -638,6 +638,38 @@ describe("API route tests", () => {
       });
     });
 
+    it("returns whether a repository is retired, and its open drops, in the repository list", async () => {
+      mockedPrisma.repo.findMany.mockResolvedValue([
+        {
+          id: "repo-id",
+          owner: "example",
+          name: "repo",
+          repoUrl: "https://github.com/example/repo",
+          helmChartLocations: [],
+          dockerLocations: [],
+          apiSpecificationLocations: [],
+          documentationLocations: [],
+          updatedAt: new Date("2026-05-06T00:00:00Z"),
+          retiredAt: new Date("2026-11-19T09:00:00Z"),
+          retiredReason: "Replaced by a newer component",
+          _count: { analyses: 0 },
+          analyses: [],
+          drops: [{ fixBy: new Date("2099-01-10T00:00:00Z") }, { fixBy: new Date("2099-01-03T00:00:00Z") }],
+        },
+      ]);
+
+      const response = await app.inject({ method: "GET", url: "/api/repositories" });
+
+      const body = JSON.parse(response.payload) as { repositories: Array<Record<string, unknown>> };
+      expect(body.repositories[0]).toMatchObject({
+        retiredAt: "2026-11-19T09:00:00.000Z",
+        retiredReason: "Replaced by a newer component",
+        openDropCount: 2,
+        overdueDropCount: 0,
+        nextFixBy: "2099-01-03T00:00:00.000Z",
+      });
+    });
+
     it("returns the ratings of every analysis in the repository history", async () => {
       mockedPrisma.repo.findFirst.mockResolvedValue({
         id: "repo-id",

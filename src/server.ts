@@ -7,6 +7,7 @@ import { registerRepoFollowRoute } from "./app/api/repositories/[repoId]/follow/
 import { registerRepoUsageRoutes } from "./app/api/repositories/[repoId]/usage/route";
 import { registerOrganisationsRoutes } from "./app/api/organisations/route";
 import { registerRepoDropsRoute } from "./app/api/repositories/[repoId]/drops/route";
+import { registerRepoRetireRoute } from "./app/api/repositories/[repoId]/retire/route";
 import { registerRepoHistoryRoute } from "./app/api/repo-history/route";
 import { registerRepositoriesExportRoute } from "./app/api/repositories/export/route";
 import { registerOpenApiRoute } from "./app/api/openapi/route";
@@ -25,6 +26,7 @@ export function buildServer() {
   app.register(registerRepoUsageRoutes);
   app.register(registerOrganisationsRoutes);
   app.register(registerRepoDropsRoute);
+  app.register(registerRepoRetireRoute);
   app.register(registerRepositoriesExportRoute);
   app.register(registerRepoHistoryRoute);
   app.register(registerOpenApiRoute);

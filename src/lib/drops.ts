@@ -291,3 +291,16 @@ export async function recordAnalysisDrops(
   }
   return created;
 }
+
+/**
+ * How many drops are open, how many of those are past their fix-by date,
+ * and the earliest fix-by date of the open drops.
+ */
+export function openDropCounts(drops: Array<{ fixBy: Date }>, now: number) {
+  const fixByTimes = drops.map((drop) => drop.fixBy.getTime());
+  return {
+    openDropCount: drops.length,
+    overdueDropCount: fixByTimes.filter((time) => time < now).length,
+    nextFixBy: fixByTimes.length > 0 ? new Date(Math.min(...fixByTimes)) : null,
+  };
+}
