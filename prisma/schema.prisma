@@ -20,7 +20,6 @@ model RepoAnalysis {
   scannedCommit  String?
   declaredUsers      String[] @default([])
   declaredUserCount  Int?
-  confirmedUserCount Int?
   score     Int
   results   Json
   createdAt DateTime @default(now())
@@ -59,26 +58,11 @@ model Repo {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   analyses  RepoAnalysis[]
-  userConfirmations RepoUserConfirmation[]
   slas      RepoSla[]
 
   @@index([owner])
   @@index([name])
   @@index([nextCheckAt])
-}
-
-model RepoUserConfirmation {
-  id              String   @id @default(uuid())
-  repoId          String
-  repository      Repo     @relation(fields: [repoId], references: [id], onDelete: Cascade)
-  organisation    String
-  organisationKey String
-  confirmedOn     DateTime @db.Date
-  source          String
-  method          String
-  createdAt       DateTime @default(now())
-
-  @@unique([repoId, organisationKey])
 }
 
 model RepoSla {

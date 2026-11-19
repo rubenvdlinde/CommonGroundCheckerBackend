@@ -1,24 +1,10 @@
 /**
- * Declared and confirmed users of a repository, and its SLAs.
+ * Declared users of a repository, and its SLAs.
  *
  * Declared users are the organisations under `usedBy` in publiccode.yml, as
- * sent by the checker with each analysis. An organisation counts as confirmed
- * when an admin recorded a confirmation for it on that repository. Names match
+ * sent by the checker with each analysis. Names count once, compared
  * case-insensitively, trimmed and with runs of whitespace read as one space.
  */
-
-export const CONFIRMATION_METHODS = ["written-confirmation", "register-entry"] as const;
-export type ConfirmationMethod = (typeof CONFIRMATION_METHODS)[number];
-
-export interface StoredConfirmation {
-  id: string;
-  organisation: string;
-  organisationKey: string;
-  confirmedOn: Date;
-  source: string;
-  method: string;
-  createdAt: Date;
-}
 
 export interface StoredSla {
   id: string;
@@ -28,14 +14,6 @@ export interface StoredSla {
   until: Date;
   link: string | null;
   createdAt: Date;
-}
-
-export interface ConfirmationInput {
-  organisation: string;
-  organisationKey: string;
-  confirmedOn: Date;
-  source: string;
-  method: ConfirmationMethod;
 }
 
 export interface SlaInput {
@@ -68,12 +46,6 @@ export function declaredOrganisations(value: unknown): string[] | null {
   return names;
 }
 
-/** The number of declared organisations that have a confirmation. */
-export function countConfirmed(declared: string[], confirmationKeys: Iterable<string>): number {
-  const keys = new Set(confirmationKeys);
-  return declared.filter((name) => keys.has(organisationKey(name))).length;
-}
-
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
 }
@@ -93,31 +65,6 @@ function httpUrl(value: string): boolean {
   } catch {
     return false;
   }
-}
-
-export function parseConfirmationInput(body: unknown): Parsed<ConfirmationInput> {
-  const fields = (body ?? {}) as Record<string, unknown>;
-  const organisation = text(fields.organisation);
-  if (!organisation) return { error: "Missing organisation: the name of the organisation that uses the component." };
-  const confirmedOn = parseDay(fields.confirmedOn);
-  if (!confirmedOn) return { error: "Missing or invalid confirmedOn: expected a date as YYYY-MM-DD." };
-  const source = text(fields.source);
-  if (!httpUrl(source)) {
-    return { error: "Missing or invalid source: expected an http(s) link to the written confirmation or the register entry." };
-  }
-  const method = fields.method;
-  if (typeof method !== "string" || !(CONFIRMATION_METHODS as readonly string[]).includes(method)) {
-    return { error: `Missing or invalid method: expected one of ${CONFIRMATION_METHODS.join(", ")}.` };
-  }
-  return {
-    value: {
-      organisation,
-      organisationKey: organisationKey(organisation),
-      confirmedOn,
-      source,
-      method: method as ConfirmationMethod,
-    },
-  };
 }
 
 export function parseSlaInput(body: unknown): Parsed<SlaInput> {
@@ -144,16 +91,6 @@ export interface UsageStatus {
   /** Declared organisations of the latest analysis, or null when it did not record them */
   declaredUsers: string[] | null;
   declaredUserCount: number | null;
-  confirmedUserCount: number | null;
-  confirmations: Array<{
-    id: string;
-    organisation: string;
-    confirmedOn: string;
-    source: string;
-    method: string;
-    /** Whether the latest analysis declares this organisation; only declared organisations count */
-    declared: boolean;
-  }>;
   slas: Array<{
     id: string;
     party: string;
@@ -164,32 +101,11 @@ export interface UsageStatus {
   }>;
 }
 
-/** The usage of a repository now: the latest declared users against today's confirmations, and every SLA. */
-export function buildUsageStatus(
-  declared: string[] | null,
-  confirmations: StoredConfirmation[],
-  slas: StoredSla[]
-): UsageStatus {
-  const declaredKeys = new Set((declared ?? []).map(organisationKey));
+/** The usage of a repository now: the declared users of the latest analysis, and every SLA. */
+export function buildUsageStatus(declared: string[] | null, slas: StoredSla[]): UsageStatus {
   return {
     declaredUsers: declared,
     declaredUserCount: declared ? declared.length : null,
-    confirmedUserCount: declared
-      ? countConfirmed(
-          declared,
-          confirmations.map((confirmation) => confirmation.organisationKey)
-        )
-      : null,
-    confirmations: [...confirmations]
-      .sort((a, b) => a.organisation.localeCompare(b.organisation))
-      .map((confirmation) => ({
-        id: confirmation.id,
-        organisation: confirmation.organisation,
-        confirmedOn: day(confirmation.confirmedOn),
-        source: confirmation.source,
-        method: confirmation.method,
-        declared: declaredKeys.has(confirmation.organisationKey),
-      })),
     slas: [...slas]
       .sort((a, b) => b.until.getTime() - a.until.getTime())
       .map((sla) => ({
