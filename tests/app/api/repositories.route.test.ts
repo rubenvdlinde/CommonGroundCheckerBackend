@@ -62,7 +62,9 @@ type RepoPostResponse = {
     aspectRatings?: unknown;
     endorsement?: unknown;
     issueCounts?: unknown;
+    version?: string | null;
   };
+  version?: string | null;
 };
 
 type RepoListResponse = { repositories: RepoPostResponse[] };
@@ -133,7 +135,7 @@ describe("API route tests", () => {
       const response = await app.inject({ method: "GET", url: "/api/repositories" });
 
       expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.payload) as { repositories: Array<{ version: string | null; latestAnalysis: { version: string | null } }> };
+      const body = JSON.parse(response.payload) as RepoListResponse;
       expect(body.repositories[0].version).toBe("v2.1.0");
       expect(body.repositories[0].latestAnalysis.version).toBe("v2.0.0");
     });
