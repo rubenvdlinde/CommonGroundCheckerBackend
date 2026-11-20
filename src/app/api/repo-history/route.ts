@@ -9,6 +9,7 @@ type RepoHistoryRepository = {
   repoUrl: string;
   owner: string;
   name: string;
+  displayName: string | null;
   description: string | null;
   language: string | null;
   stars: number | null;
@@ -77,6 +78,7 @@ export function registerRepoHistoryRoute(fastify: FastifyInstance) {
         }
 
         const repoMeta = {
+          displayName: repository.displayName,
           description: repository.description,
         language: repository.language,
         stars: repository.stars,

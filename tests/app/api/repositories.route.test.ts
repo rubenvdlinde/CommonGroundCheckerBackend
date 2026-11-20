@@ -855,6 +855,7 @@ describe("API route tests", () => {
         repoUrl: "https://github.com/example/repo",
         owner: "example",
         name: "repo",
+        displayName: "Example Repo",
         description: null,
         language: null,
         stars: 0,
@@ -876,7 +877,11 @@ describe("API route tests", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.payload) as { analyses: AnalysisResponse[] };
+      const body = JSON.parse(response.payload) as {
+        repository: { metadata: { displayName: string | null } };
+        analyses: AnalysisResponse[];
+      };
+      expect(body.repository.metadata.displayName).toBe("Example Repo");
       expect(body.analyses[0].rating).toBe(3.4);
       expect(body.analyses[0].categoryRatings).toEqual({ Governance: 4.2, Security: null });
       expect(body.analyses[0].aspectRatings).toEqual(analysis.aspectRatings);

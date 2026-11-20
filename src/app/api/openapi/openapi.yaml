@@ -1689,6 +1689,10 @@ components:
     RepoMeta:
       type: object
       properties:
+        displayName:
+          type:
+            - string
+            - null
         description:
           type:
             - string
