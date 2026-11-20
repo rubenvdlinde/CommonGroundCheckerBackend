@@ -14,8 +14,11 @@ import { registerOpenApiRoute } from "./app/api/openapi/route";
 import { registerAdminScoringRoute } from "./app/api/admin/scoring/route";
 import { registerWebhookRoute } from "./app/api/webhook/route";
 
+/** Analysis results of large repositories exceed Fastify's 1 MiB default. */
+const BODY_LIMIT_BYTES = 10 * 1024 * 1024;
+
 export function buildServer() {
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: true, bodyLimit: BODY_LIMIT_BYTES });
   const schedulerConfig = readSchedulerConfig();
   const scheduler = createScheduler({ ...schedulerConfig, logger: app.log });
   app.decorate("scheduler", scheduler);
