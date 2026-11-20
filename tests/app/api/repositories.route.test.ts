@@ -65,6 +65,8 @@ type RepoPostResponse = {
   };
 };
 
+type RepoListResponse = { repositories: RepoPostResponse[] };
+
 type AnalysisResponse = {
   id: string;
   repoId: string;
@@ -110,6 +112,32 @@ describe("API route tests", () => {
   });
 
   describe("GET /api/repositories", () => {
+    it("returns the repository version and the latest analysis version", async () => {
+      mockedPrisma.repo.findMany.mockResolvedValue([
+        {
+          id: "with-versions",
+          owner: "example",
+          name: "with-versions",
+          repoUrl: "https://github.com/example/with-versions",
+          helmChartLocations: [],
+          dockerLocations: [],
+          apiSpecificationLocations: [],
+          documentationLocations: [],
+          updatedAt: new Date("2026-05-06T00:00:00Z"),
+          version: "v2.1.0",
+          _count: { analyses: 1 },
+          analyses: [{ checkedAt: new Date("2026-05-06T00:00:00Z"), score: 70, version: "v2.0.0" }],
+        },
+      ]);
+
+      const response = await app.inject({ method: "GET", url: "/api/repositories" });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.payload) as { repositories: Array<{ version: string | null; latestAnalysis: { version: string | null } }> };
+      expect(body.repositories[0].version).toBe("v2.1.0");
+      expect(body.repositories[0].latestAnalysis.version).toBe("v2.0.0");
+    });
+
     it("gives the evidence of the standards result with the latest analysis", async () => {
       const evidence = ["Found in the repository, not declared: Zaken API 1.5.1 in src/openapi.yaml (by title)"];
       mockedPrisma.repo.findMany.mockResolvedValue([
@@ -156,9 +184,10 @@ describe("API route tests", () => {
         dockerLocations: [],
         apiSpecificationLocations: [],
         documentationLocations: [],
+        version: "v1.2.0",
         updatedAt: new Date("2026-05-06T00:00:00Z"),
         _count: { analyses: 1 },
-        analyses: [{ checkedAt: new Date("2026-05-06T00:00:00Z"), score: 42 }],
+        analyses: [{ checkedAt: new Date("2026-05-06T00:00:00Z"), score: 42, version: "v1.1.0" }],
       };
       mockedPrisma.repo.upsert.mockResolvedValue(mockRepo);
 
@@ -180,6 +209,7 @@ describe("API route tests", () => {
         name: "repo",
         repoUrl: "https://github.com/example/repo",
         analysisCount: 1,
+        version: "v1.2.0",
       });
       expect(body.latestAnalysis).toEqual({
         checkedAt: mockRepo.analyses[0].checkedAt.toISOString(),
@@ -189,11 +219,15 @@ describe("API route tests", () => {
         aspectRatings: null,
         endorsement: null,
         checklistVersion: null,
-        version: null,
+        version: "v1.1.0",
         declaredUserCount: null,
         developmentStatus: null,
         issueCounts: null,
       });
+      const [upsertArgs] = mockedPrisma.repo.upsert.mock.calls[0] as [
+        { include: { analyses: { select: Record<string, boolean> } } },
+      ];
+      expect(upsertArgs.include.analyses.select).toMatchObject({ checkedAt: true, score: true, version: true });
     });
 
     it("creates or updates repository metadata with a valid GitLab repoUrl", async () => {

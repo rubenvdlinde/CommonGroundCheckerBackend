@@ -1008,6 +1008,11 @@ components:
           description: "Maintainers from publiccode.yml: the names in maintenance.contacts, else the organisation names (maintenance.contractors, organisation)"
           items:
             type: string
+        version:
+          type:
+            - string
+            - null
+          description: "Version detected on the repository's most recent scan"
         updatedAt:
           type: string
           format: date-time
@@ -1125,6 +1130,7 @@ components:
         - developmentStatus
         - maintenanceType
         - maintainers
+        - version
         - updatedAt
         - followed
         - checkIntervalHours
