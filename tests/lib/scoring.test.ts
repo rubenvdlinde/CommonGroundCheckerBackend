@@ -9,7 +9,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import { DEFAULT_CATEGORY_WEIGHTS, getActiveScoringConfig } from "@/lib/scoring";
+import { DEFAULT_CATEGORY_WEIGHTS, DEFAULT_CRITERION_CONFIG_BY_CHECK_ID, getActiveScoringConfig } from "@/lib/scoring";
 
 // Mirrors CATEGORY_WEIGHTS in the frontend, src/lib/criteria.ts of
 // https://github.com/Hugo-ter-Doest/CommonGroundChecker
@@ -93,5 +93,11 @@ describe("scoring defaults", () => {
       weight: 0.5,
       requirementLevel: "mandatory",
     });
+  });
+});
+
+describe("default criterion config", () => {
+  it("includes the Maintenance contract criterion as recommended, like the frontend", () => {
+    expect(DEFAULT_CRITERION_CONFIG_BY_CHECK_ID.maintenance).toEqual({ weight: 1, requirementLevel: "recommended" });
   });
 });
