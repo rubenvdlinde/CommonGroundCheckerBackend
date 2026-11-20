@@ -87,6 +87,12 @@ describe("detectDrops", () => {
     ]);
   });
 
+  it("leaves out the informative AI readiness category", () => {
+    const previous = snapshot({ categoryRatings: { Governance: 4.6, "AI readiness": 5.5 } });
+    const current = snapshot({ categoryRatings: { Governance: 4.6, "AI readiness": 0.5 } });
+    expect(detectDrops(previous, current)).toEqual([]);
+  });
+
   it("does not count a lower rating within the same star, or a rating that is missing", () => {
     const current = snapshot({ rating: 3.6, categoryRatings: { Governance: null } });
     expect(detectDrops(snapshot(), current)).toEqual([]);

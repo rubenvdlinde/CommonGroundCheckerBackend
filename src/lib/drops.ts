@@ -7,6 +7,9 @@ export type DropKind = "criterion" | "rating" | "verdict";
 /** The subject of the overall rating; a category rating uses the category name. */
 export const OVERALL_RATING_SUBJECT = "overall";
 
+/** Categories that are rated but never count, so their ratings never drop. */
+export const INFORMATIVE_CATEGORIES: readonly string[] = ["AI readiness"];
+
 /** The subject of the verdict "suitable for Common Ground". */
 export const VERDICT_SUBJECT = "suitable";
 
@@ -63,7 +66,9 @@ function ratingsBySubject(snapshot: AnalysisSnapshot): Map<string, number> {
   const categories = snapshot.categoryRatings;
   if (categories && typeof categories === "object" && !Array.isArray(categories)) {
     for (const [category, rating] of Object.entries(categories as Record<string, unknown>)) {
-      if (isRatingValue(rating) && category !== OVERALL_RATING_SUBJECT) ratings.set(category, rating);
+      if (isRatingValue(rating) && category !== OVERALL_RATING_SUBJECT && !INFORMATIVE_CATEGORIES.includes(category)) {
+        ratings.set(category, rating);
+      }
     }
   }
   return ratings;
@@ -83,7 +88,7 @@ function ratingLabel(subject: string): string {
 /**
  * The drops from one analysis to the next: a criterion that went from pass
  * to fail (informative criteria are left out), a rating that lost a whole
- * star, and the verdict "suitable for Common Ground" that was lost. A value
+ * star (informative categories are left out), and the verdict "suitable for Common Ground" that was lost. A value
  * missing from either analysis is not a drop.
  */
 export function detectDrops(previous: AnalysisSnapshot, current: AnalysisSnapshot): DetectedDrop[] {
