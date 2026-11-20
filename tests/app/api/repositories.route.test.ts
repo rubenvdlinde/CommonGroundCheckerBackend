@@ -140,6 +140,44 @@ describe("API route tests", () => {
       expect(body.repositories[0].latestAnalysis.version).toBe("v2.0.0");
     });
 
+    it("gives the scanned ref, its kind and commit with the latest analysis", async () => {
+      mockedPrisma.repo.findMany.mockResolvedValue([
+        {
+          id: "on-branch",
+          owner: "example",
+          name: "on-branch",
+          repoUrl: "https://github.com/example/on-branch",
+          helmChartLocations: [],
+          dockerLocations: [],
+          apiSpecificationLocations: [],
+          documentationLocations: [],
+          updatedAt: new Date("2026-05-06T00:00:00Z"),
+          _count: { analyses: 1 },
+          analyses: [
+            {
+              checkedAt: new Date("2026-05-06T00:00:00Z"),
+              score: 70,
+              version: "2.1.0",
+              scannedRef: "main",
+              scannedRefKind: "branch",
+              scannedCommit: "4577ea7d0c",
+            },
+          ],
+        },
+      ]);
+
+      const response = await app.inject({ method: "GET", url: "/api/repositories" });
+
+      const body = JSON.parse(response.payload) as { repositories: Array<{ latestAnalysis: Record<string, unknown> }> };
+      expect(body.repositories[0].latestAnalysis).toMatchObject({
+        scannedRef: "main",
+        scannedRefKind: "branch",
+        scannedCommit: "4577ea7d0c",
+      });
+      const query = mockedPrisma.repo.findMany.mock.calls[0][0] as { include: { analyses: { select: Record<string, boolean> } } };
+      expect(query.include.analyses.select.scannedCommit).toBe(true);
+    });
+
     it("gives the evidence of the standards result with the latest analysis", async () => {
       const evidence = ["Found in the repository, not declared: Zaken API 1.5.1 in src/openapi.yaml (by title)"];
       mockedPrisma.repo.findMany.mockResolvedValue([
@@ -222,6 +260,9 @@ describe("API route tests", () => {
         endorsement: null,
         checklistVersion: null,
         version: "v1.1.0",
+        scannedRef: null,
+        scannedRefKind: null,
+        scannedCommit: null,
         declaredUserCount: null,
         developmentStatus: null,
         issueCounts: null,
@@ -276,6 +317,9 @@ describe("API route tests", () => {
         endorsement: null,
         checklistVersion: null,
         version: null,
+        scannedRef: null,
+        scannedRefKind: null,
+        scannedCommit: null,
         declaredUserCount: null,
         developmentStatus: null,
         issueCounts: null,
@@ -1064,6 +1108,9 @@ describe("API route tests", () => {
         endorsement: { passed: true, reasons: [] },
         checklistVersion: "2026.1",
         version: null,
+        scannedRef: null,
+        scannedRefKind: null,
+        scannedCommit: null,
         declaredUserCount: null,
         developmentStatus: null,
         standardsEvidence: null,

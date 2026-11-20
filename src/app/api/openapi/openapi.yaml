@@ -1096,6 +1096,21 @@ components:
                 - string
                 - null
               description: "The version the analysis measured"
+            scannedRef:
+              type:
+                - string
+                - null
+              description: "The branch or tag the analysis measured"
+            scannedRefKind:
+              type:
+                - string
+                - null
+              description: "How the scanned ref was chosen, such as release or branch"
+            scannedCommit:
+              type:
+                - string
+                - null
+              description: "The commit the scanned ref pointed at"
             declaredUserCount:
               type:
                 - integer

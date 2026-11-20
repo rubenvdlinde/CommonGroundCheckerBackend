@@ -23,6 +23,9 @@ interface LatestAnalysisRecord {
   endorsement: unknown;
   checklistVersion: string | null;
   version?: string | null;
+  scannedRef?: string | null;
+  scannedRefKind?: string | null;
+  scannedCommit?: string | null;
   declaredUserCount?: number | null;
   developmentStatus?: string | null;
   issueCounts: unknown;
@@ -38,6 +41,9 @@ function toLatestAnalysis(analysis: LatestAnalysisRecord) {
     endorsement: analysis.endorsement ?? null,
     checklistVersion: analysis.checklistVersion ?? null,
     version: analysis.version ?? null,
+    scannedRef: analysis.scannedRef ?? null,
+    scannedRefKind: analysis.scannedRefKind ?? null,
+    scannedCommit: analysis.scannedCommit ?? null,
     declaredUserCount: analysis.declaredUserCount ?? null,
     developmentStatus: analysis.developmentStatus ?? null,
     issueCounts: analysis.issueCounts ?? null,
@@ -140,6 +146,9 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
               endorsement: true,
               checklistVersion: true,
               version: true,
+              scannedRef: true,
+              scannedRefKind: true,
+              scannedCommit: true,
               declaredUserCount: true,
               developmentStatus: true,
               results: true,
