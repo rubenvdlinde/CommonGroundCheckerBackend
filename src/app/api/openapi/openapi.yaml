@@ -972,6 +972,36 @@ components:
         isRegister:
           type: boolean
           description: "Whether the repository is checked as a register; sent to the checker on scheduled rescans"
+        displayName:
+          type:
+            - string
+            - null
+          description: "Software name from publiccode.yml (name)"
+        shortDescription:
+          type:
+            - string
+            - null
+          description: "Short description from publiccode.yml: the Dutch one if present, else English, else the first available language"
+        logoUrl:
+          type:
+            - string
+            - null
+          description: "Absolute http(s) URL of the logo from publiccode.yml (logo), resolved to the git host's raw URL when it is a repository path"
+        developmentStatus:
+          type:
+            - string
+            - null
+          description: "Development status from publiccode.yml (developmentStatus)"
+        maintenanceType:
+          type:
+            - string
+            - null
+          description: "Maintenance type from publiccode.yml (maintenance.type)"
+        maintainers:
+          type: array
+          description: "Maintainers from publiccode.yml: the names in maintenance.contacts, else the organisation names (maintenance.contractors, organisation)"
+          items:
+            type: string
         updatedAt:
           type: string
           format: date-time
@@ -1081,6 +1111,12 @@ components:
         - dockerLocations
         - apiSpecificationLocations
         - documentationLocations
+        - displayName
+        - shortDescription
+        - logoUrl
+        - developmentStatus
+        - maintenanceType
+        - maintainers
         - updatedAt
         - followed
         - checkIntervalHours
@@ -1135,6 +1171,26 @@ components:
         isRegister:
           type: boolean
           description: "Whether the repository is checked as a register; sent to the checker on scheduled rescans"
+        displayName:
+          type: string
+          description: "Software name from publiccode.yml (name)"
+        shortDescription:
+          type: string
+          description: "Short description from publiccode.yml: the Dutch one if present, else English, else the first available language"
+        logoUrl:
+          type: string
+          description: "Absolute http(s) URL of the logo from publiccode.yml (logo), resolved to the git host's raw URL when it is a repository path"
+        developmentStatus:
+          type: string
+          description: "Development status from publiccode.yml (developmentStatus)"
+        maintenanceType:
+          type: string
+          description: "Maintenance type from publiccode.yml (maintenance.type)"
+        maintainers:
+          type: array
+          description: "Maintainers from publiccode.yml: the names in maintenance.contacts, else the organisation names (maintenance.contractors, organisation)"
+          items:
+            type: string
       required:
         - repoUrl
     CheckRequest:
@@ -1689,10 +1745,6 @@ components:
     RepoMeta:
       type: object
       properties:
-        displayName:
-          type:
-            - string
-            - null
         description:
           type:
             - string
@@ -1735,6 +1787,36 @@ components:
           required:
             - source
             - detail
+        displayName:
+          type:
+            - string
+            - null
+          description: "Software name from publiccode.yml (name)"
+        shortDescription:
+          type:
+            - string
+            - null
+          description: "Short description from publiccode.yml: the Dutch one if present, else English, else the first available language"
+        logoUrl:
+          type:
+            - string
+            - null
+          description: "Absolute http(s) URL of the logo from publiccode.yml (logo), resolved to the git host's raw URL when it is a repository path"
+        developmentStatus:
+          type:
+            - string
+            - null
+          description: "Development status from publiccode.yml (developmentStatus)"
+        maintenanceType:
+          type:
+            - string
+            - null
+          description: "Maintenance type from publiccode.yml (maintenance.type)"
+        maintainers:
+          type: array
+          description: "Maintainers from publiccode.yml: the names in maintenance.contacts, else the organisation names (maintenance.contractors, organisation)"
+          items:
+            type: string
       required:
         - description
         - language
@@ -1745,6 +1827,12 @@ components:
         - license
         - version
         - versionEvidence
+        - displayName
+        - shortDescription
+        - logoUrl
+        - developmentStatus
+        - maintenanceType
+        - maintainers
     CheckResult:
       type: object
       properties:

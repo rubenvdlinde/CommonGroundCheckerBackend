@@ -59,7 +59,7 @@ The API supports three types of resources:
 
 ### Request/response shape
 
-- `/api/repositories` expects JSON metadata containing `repoUrl` and optional repository fields.
+- `/api/repositories` expects JSON metadata containing `repoUrl` and optional repository fields, including the publiccode.yml details `displayName`, `shortDescription`, `logoUrl`, `developmentStatus`, `maintenanceType` and `maintainers`. A `logoUrl` that is not an absolute http(s) URL is stored as null.
 - The literal OpenAPI specification is stored in `src/app/api/openapi/openapi.yaml` and served by `/api/openapi`.
 - `/api/repositories/{repoId}/analyses` also accepts `declaredUsers`, the organisations under `usedBy` in publiccode.yml. The analysis stores the names, without blanks and without duplicates that differ only in case or spacing, and their number as `declaredUserCount`. Without `declaredUsers` the count stays `null`.
 - `/api/repositories/{repoId}/usage/slas` expects `{ "party": "VNG", "maintainer": "...", "startsOn": "2026-01-01", "until": "2027-12-31", "link": "https://..." }`; `link` is optional. Whether an SLA is still valid is decided by the checker, which reads `until` as the last day it applies.
@@ -217,7 +217,7 @@ The service uses PostgreSQL as its primary datastore. Prisma is used for type-sa
 
 ### Primary models
 
-- `Repo` � stores repository metadata, GitHub owner/name, repository URL, topics, license, and discovered locations.
+- `Repo` � stores repository metadata, GitHub owner/name, repository URL, topics, license, and discovered locations, plus the details read from publiccode.yml: display name, short description, logo URL, development status, maintenance type and maintainers.
 - `RepoAnalysis` � stores analysis run results, score, checked timestamp, version information, and raw results payload.
 - `ScoringConfig` � stores a snapshot of scoring configuration used for a run, including criterion weights and thresholds.
 - `MaintenanceDrop` stores a criterion, rating or verdict that got worse between two analyses, with its fix-by date and when it was resolved.

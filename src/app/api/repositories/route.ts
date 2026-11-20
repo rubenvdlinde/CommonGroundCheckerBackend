@@ -41,6 +41,52 @@ function toLatestAnalysis(analysis: LatestAnalysisRecord) {
   };
 }
 
+function normalizeOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+/** Accepts only absolute http(s) URLs, so a stored logo can never be a script or data URL. */
+function normalizeLogoUrl(value: unknown): string | null {
+  const url = normalizeOptionalString(value);
+  if (!url) {
+    return null;
+  }
+  try {
+    const protocol = new URL(url).protocol;
+    return protocol === "https:" || protocol === "http:" ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+function publiccodeDetails(body: Record<string, unknown> | undefined) {
+  return {
+    displayName: normalizeOptionalString(body?.displayName),
+    shortDescription: normalizeOptionalString(body?.shortDescription),
+    logoUrl: normalizeLogoUrl(body?.logoUrl),
+    developmentStatus: normalizeOptionalString(body?.developmentStatus),
+    maintenanceType: normalizeOptionalString(body?.maintenanceType),
+    maintainers: normalizeStringArray(body?.maintainers),
+  };
+}
+
+type RepoPubliccodeDetails = ReturnType<typeof publiccodeDetails>;
+
+function pickPubliccodeDetails(repository: RepoPubliccodeDetails): RepoPubliccodeDetails {
+  return {
+    displayName: repository.displayName,
+    shortDescription: repository.shortDescription,
+    logoUrl: repository.logoUrl,
+    developmentStatus: repository.developmentStatus,
+    maintenanceType: repository.maintenanceType,
+    maintainers: repository.maintainers,
+  };
+}
+
 export function registerRepositoriesRoutes(fastify: FastifyInstance) {
   fastify.get("/api/repositories", async (request, reply) => {
     try {
@@ -94,6 +140,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
           apiSpecificationLocations: repository.apiSpecificationLocations,
           documentationLocations: repository.documentationLocations,
           isRegister: repository.isRegister,
+          ...pickPubliccodeDetails(repository),
           updatedAt: repository.updatedAt,
           ...toFollowFields(repository),
           ...toLifecycleFields(repository),
@@ -146,6 +193,8 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
       const isRegister =
         typeof body?.isRegister === "boolean" ? { isRegister: body.isRegister } : {};
 
+      const details = publiccodeDetails(body);
+
       const repoRecord = await prisma.repo.upsert({
         where: { repoUrl },
         update: {
@@ -178,6 +227,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
             body?.documentationLocations
           ),
           ...isRegister,
+          ...details,
         },
         create: {
           repoUrl,
@@ -210,6 +260,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
             body?.documentationLocations
           ),
           ...isRegister,
+          ...details,
         },
         include: {
           _count: { select: { analyses: true } },
@@ -239,6 +290,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
         apiSpecificationLocations: repoRecord.apiSpecificationLocations,
         documentationLocations: repoRecord.documentationLocations,
         isRegister: repoRecord.isRegister,
+        ...pickPubliccodeDetails(repoRecord),
         updatedAt: repoRecord.updatedAt,
         ...toFollowFields(repoRecord),
         ...toLifecycleFields(repoRecord),

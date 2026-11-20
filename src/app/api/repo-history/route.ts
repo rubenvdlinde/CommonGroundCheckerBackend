@@ -9,7 +9,6 @@ type RepoHistoryRepository = {
   repoUrl: string;
   owner: string;
   name: string;
-  displayName: string | null;
   description: string | null;
   language: string | null;
   stars: number | null;
@@ -26,6 +25,12 @@ type RepoHistoryRepository = {
   nextCheckAt: Date | null;
   retiredAt?: Date | null;
   retiredReason?: string | null;
+  displayName: string | null;
+  shortDescription: string | null;
+  logoUrl: string | null;
+  developmentStatus: string | null;
+  maintenanceType: string | null;
+  maintainers: string[];
   createdAt: string;
   updatedAt: string;
   analyses: Array<{
@@ -78,7 +83,6 @@ export function registerRepoHistoryRoute(fastify: FastifyInstance) {
         }
 
         const repoMeta = {
-          displayName: repository.displayName,
           description: repository.description,
         language: repository.language,
         stars: repository.stars,
@@ -98,6 +102,12 @@ export function registerRepoHistoryRoute(fastify: FastifyInstance) {
               : "none",
           detail: repository.versionEvidenceDetail ?? "",
         },
+        displayName: repository.displayName,
+        shortDescription: repository.shortDescription,
+        logoUrl: repository.logoUrl,
+        developmentStatus: repository.developmentStatus,
+        maintenanceType: repository.maintenanceType,
+        maintainers: repository.maintainers ?? [],
       };
 
       return {
