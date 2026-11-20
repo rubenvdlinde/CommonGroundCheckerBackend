@@ -41,6 +41,7 @@ type RepoHistoryRepository = {
     aspectRatings: Record<string, { rating: number | null; found?: number; expected?: number }> | null;
     endorsement: { passed: boolean; reasons: string[] } | null;
     checklistVersion: string | null;
+    issueCounts: { errors: number; warnings: number } | null;
   }>;
 };
 

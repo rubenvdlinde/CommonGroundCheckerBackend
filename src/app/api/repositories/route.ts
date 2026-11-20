@@ -25,6 +25,7 @@ interface LatestAnalysisRecord {
   version?: string | null;
   declaredUserCount?: number | null;
   developmentStatus?: string | null;
+  issueCounts: unknown;
 }
 
 function toLatestAnalysis(analysis: LatestAnalysisRecord) {
@@ -39,6 +40,7 @@ function toLatestAnalysis(analysis: LatestAnalysisRecord) {
     version: analysis.version ?? null,
     declaredUserCount: analysis.declaredUserCount ?? null,
     developmentStatus: analysis.developmentStatus ?? null,
+    issueCounts: analysis.issueCounts ?? null,
   };
 }
 
@@ -141,6 +143,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
               declaredUserCount: true,
               developmentStatus: true,
               results: true,
+              issueCounts: true,
             },
           },
           _count: {
@@ -301,6 +304,7 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
               aspectRatings: true,
               endorsement: true,
               checklistVersion: true,
+              issueCounts: true,
             },
           },
         },

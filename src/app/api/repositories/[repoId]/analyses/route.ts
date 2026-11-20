@@ -120,6 +120,15 @@ export function parseFingerprint(value: unknown): string | null | undefined {
   return typeof value === "string" && FINGERPRINT_PATTERN.test(value) ? value : undefined;
 }
 
+/** The errors and warnings a run's report lists, or null; undefined when invalid. */
+function parseIssueCounts(value: unknown): { errors: number; warnings: number } | null | undefined {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "object" || Array.isArray(value)) return undefined;
+  const { errors, warnings } = value as Record<string, unknown>;
+  if (!isCount(errors) || !isCount(warnings)) return undefined;
+  return { errors, warnings };
+}
+
 export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
   fastify.post(
     "/api/repositories/:repoId/analyses",
@@ -164,6 +173,7 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
         const scanDurationSeconds = parseScanDuration(body?.scanDurationSeconds);
         const toolFingerprint = parseFingerprint(body?.toolFingerprint);
         const inputsFingerprint = parseFingerprint(body?.inputsFingerprint);
+        const issueCounts = parseIssueCounts(body?.issueCounts);
 
         if (!checkedAt || Number.isNaN(Date.parse(checkedAt))) {
           return reply
@@ -214,6 +224,13 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
           });
         }
 
+        if (issueCounts === undefined) {
+          return reply.status(400).send({
+            error:
+              "Invalid issueCounts field: expected { errors, warnings } as whole numbers of 0 or more, or null.",
+          });
+        }
+
         if (checklistVersion === undefined) {
           return reply.status(400).send({
             error: "Invalid checklistVersion field: expected a version such as 2026.1 or null.",
@@ -261,6 +278,7 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
             scanDurationSeconds,
             toolFingerprint,
             inputsFingerprint,
+            ...(issueCounts ? { issueCounts } : {}),
             results,
           },
         });

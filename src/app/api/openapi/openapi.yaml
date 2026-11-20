@@ -1108,6 +1108,8 @@ components:
               items:
                 type: string
               description: "Evidence of the Supported standards result (declared in publiccode.yml, found in OpenAPI files); null when the analysis has no such result. Only in the repository list."
+            issueCounts:
+              $ref: "#/components/schemas/IssueCounts"
       required:
         - id
         - owner
@@ -1299,6 +1301,22 @@ components:
         - null
       pattern: "^[0-9A-Za-z][0-9A-Za-z.\\-]{0,31}$"
       description: "The checklist version the analysis was measured against, for example 2026.1; null for older analyses"
+    IssueCounts:
+      type:
+        - object
+        - null
+      properties:
+        errors:
+          type: integer
+          minimum: 0
+          description: "Entries in the report's errors block: failing mandatory criteria, plus an overall rating below 2.5"
+        warnings:
+          type: integer
+          minimum: 0
+          description: "Entries in the report's warnings block: missing or incomplete items"
+      required:
+        - errors
+        - warnings
     RepoAnalysisInput:
       type: object
       properties:
@@ -1357,6 +1375,8 @@ components:
           $ref: "#/components/schemas/Fingerprint"
         inputsFingerprint:
           $ref: "#/components/schemas/Fingerprint"
+        issueCounts:
+          $ref: "#/components/schemas/IssueCounts"
         results:
           type: array
           items:
@@ -1431,6 +1451,8 @@ components:
           $ref: "#/components/schemas/Fingerprint"
         inputsFingerprint:
           $ref: "#/components/schemas/Fingerprint"
+        issueCounts:
+          $ref: "#/components/schemas/IssueCounts"
         results:
           type: array
           items:
