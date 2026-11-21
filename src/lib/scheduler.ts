@@ -154,7 +154,6 @@ export function createScheduler(options: SchedulerOptions) {
     const due = (await prisma.repo.findMany({
       where: {
         nextCheckAt: { lte: now },
-        retiredAt: null,
         AND: [
           ...(filter.repoId ? [{ id: filter.repoId }] : []),
           ...(running.size > 0 ? [{ id: { notIn: [...running.keys()] } }] : []),

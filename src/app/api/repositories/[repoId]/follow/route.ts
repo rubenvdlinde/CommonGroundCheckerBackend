@@ -73,7 +73,7 @@ export function registerRepoFollowRoute(fastify: FastifyInstance) {
           ...(scanRef !== undefined ? { scanRef } : {}),
           ...(slaLabels !== undefined ? { slaLabels: slaLabels ?? Prisma.DbNull } : {}),
           nextCheckAt: computeNextCheckAt(
-            followed && !repository.retiredAt,
+            followed,
             checkIntervalHours,
             repository.lastCheckedAt
           ),

@@ -1,6 +1,5 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { prisma } from "@/lib/db";
-import { toLifecycleFields } from "@/lib/lifecycle";
 import { openDropCounts } from "@/lib/drops";
 import { aggregateOrganisations, findNearDuplicates } from "@/lib/organisations";
 import { buildUsageStatus } from "@/lib/usage";
@@ -65,8 +64,6 @@ export function registerOrganisationsRoutes(fastify: FastifyInstance) {
           owner: true,
           name: true,
           repoUrl: true,
-          retiredAt: true,
-          retiredReason: true,
           slas: true,
           drops: {
             where: { resolvedAt: null },
@@ -103,7 +100,6 @@ export function registerOrganisationsRoutes(fastify: FastifyInstance) {
             owner: repository.owner,
             name: repository.name,
             repoUrl: repository.repoUrl,
-            ...toLifecycleFields(repository),
             ...openDropCounts(repository.drops ?? [], now),
             slas: buildUsageStatus(null, repository.slas).slas,
             latestAnalysis: repository.analyses[0] ?? null,

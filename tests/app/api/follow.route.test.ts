@@ -120,15 +120,6 @@ describe("PUT /api/repositories/{repoId}/follow", () => {
     });
   });
 
-  it("does not schedule a retired repository when it is followed", async () => {
-    mockedPrisma.repo.findUnique.mockResolvedValue(storedRepo({ retiredAt: new Date("2026-10-01T08:00:00Z") }));
-
-    const response = await putFollow({ followed: true, checkIntervalHours: 24 });
-
-    expect(response.statusCode).toBe(200);
-    expect(updateData()).toMatchObject({ followed: true, nextCheckAt: null });
-  });
-
   it("stores a label map for the SLA times, lower case", async () => {
     mockedPrisma.repo.findUnique.mockResolvedValue(storedRepo());
 
@@ -368,24 +359,6 @@ describe("storing an analysis", () => {
         lastCheckedAt: new Date("2026-11-10T08:00:00Z"),
         nextCheckAt: new Date("2026-11-17T08:00:00Z"),
       },
-    });
-  });
-
-  it("records the check time of a retired repository without scheduling the next check", async () => {
-    mockedPrisma.repo.findUnique.mockResolvedValue(
-      storedRepo({ followed: true, checkIntervalHours: 168, retiredAt: new Date("2026-11-01T00:00:00Z") })
-    );
-    mockedPrisma.repoAnalysis.create.mockResolvedValue({ id: "analysis-id" });
-
-    await app.inject({
-      method: "POST",
-      url: "/api/repositories/repo-id/analyses",
-      payload: { checkedAt: "2026-11-10T08:00:00Z", score: 80, results: [] },
-    });
-
-    expect(mockedPrisma.repo.update).toHaveBeenCalledWith({
-      where: { id: "repo-id" },
-      data: { lastCheckedAt: new Date("2026-11-10T08:00:00Z"), nextCheckAt: null },
     });
   });
 

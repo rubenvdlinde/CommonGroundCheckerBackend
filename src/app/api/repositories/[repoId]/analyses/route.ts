@@ -288,7 +288,7 @@ export function registerRepoAnalysesRoute(fastify: FastifyInstance) {
           data: {
             lastCheckedAt: checkedAtDate,
             nextCheckAt: computeNextCheckAt(
-              repository.followed && !repository.retiredAt,
+              repository.followed,
               repository.checkIntervalHours,
               checkedAtDate
             ),

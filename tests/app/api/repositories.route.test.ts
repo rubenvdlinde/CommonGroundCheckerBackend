@@ -1129,7 +1129,7 @@ describe("API route tests", () => {
       });
     });
 
-    it("returns the retirement, open drops, SLAs and latest version, users and development status in the repository list", async () => {
+    it("returns the open drops, SLAs and latest version, users and development status in the repository list", async () => {
       mockedPrisma.repo.findMany.mockResolvedValue([
         {
           id: "repo-id",
@@ -1141,8 +1141,6 @@ describe("API route tests", () => {
           apiSpecificationLocations: [],
           documentationLocations: [],
           updatedAt: new Date("2026-05-06T00:00:00Z"),
-          retiredAt: new Date("2026-11-19T09:00:00Z"),
-          retiredReason: "Replaced by a newer component",
           _count: { analyses: 1 },
           analyses: [
             {
@@ -1176,8 +1174,6 @@ describe("API route tests", () => {
 
       const body = JSON.parse(response.payload) as { repositories: Array<Record<string, unknown>> };
       expect(body.repositories[0]).toMatchObject({
-        retiredAt: "2026-11-19T09:00:00.000Z",
-        retiredReason: "Replaced by a newer component",
         openDropCount: 2,
         overdueDropCount: 0,
         nextFixBy: "2099-01-03T00:00:00.000Z",
