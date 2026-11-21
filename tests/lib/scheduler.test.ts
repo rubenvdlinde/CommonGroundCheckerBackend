@@ -80,7 +80,7 @@ describe("scheduler", () => {
     await s.idle();
 
     expect(mockedPrisma.repo.findMany).toHaveBeenCalledWith({
-      where: { nextCheckAt: { lte: NOW }, retiredAt: null, AND: [] },
+      where: { nextCheckAt: { lte: NOW }, AND: [] },
       orderBy: { nextCheckAt: "asc" },
       take: 2,
     });
@@ -216,7 +216,7 @@ describe("scheduler", () => {
     await s.idle();
 
     expect(mockedPrisma.repo.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { nextCheckAt: { lte: NOW }, retiredAt: null, AND: [{ id: "a" }] } })
+      expect.objectContaining({ where: { nextCheckAt: { lte: NOW }, AND: [{ id: "a" }] } })
     );
     expect(mockedPrisma.repo.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { nextCheckAt: null } })

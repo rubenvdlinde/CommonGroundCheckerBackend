@@ -72,8 +72,6 @@ model Repo {
   lastCheckedAt            DateTime?
   nextCheckAt              DateTime?
   webhookTokenHash         String?
-  retiredAt                DateTime?
-  retiredReason            String?
   /// Set by a rescan with `full: true`; the next scheduled scan runs every check
   fullScanRequested        Boolean   @default(false)
   displayName              String?

@@ -3,7 +3,6 @@ import type { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/db";
 import { parseRepositoryUrl } from "@/lib/repo";
 import { toFollowFields } from "@/lib/follow";
-import { toLifecycleFields } from "@/lib/lifecycle";
 import { openDropCounts } from "@/lib/drops";
 import { buildUsageStatus } from "@/lib/usage";
 import { standardsEvidenceOf } from "@/lib/standards";
@@ -182,7 +181,6 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
           version: repository.version,
           updatedAt: repository.updatedAt,
           ...toFollowFields(repository),
-          ...toLifecycleFields(repository),
           analysisCount: repository._count.analyses,
           ...openDropCounts(repository.drops ?? [], now),
           slas: buildUsageStatus(null, repository.slas ?? []).slas,
@@ -335,7 +333,6 @@ export function registerRepositoriesRoutes(fastify: FastifyInstance) {
         version: repoRecord.version,
         updatedAt: repoRecord.updatedAt,
         ...toFollowFields(repoRecord),
-        ...toLifecycleFields(repoRecord),
         analysisCount: repoRecord._count.analyses,
         latestAnalysis: repoRecord.analyses[0]
           ? toLatestAnalysis(repoRecord.analyses[0])
